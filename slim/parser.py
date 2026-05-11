@@ -3,7 +3,7 @@ SLIM Parser — Reference Implementation v1.0
 Structured LLM Instruction Markup
 
 © 2026 Sasidhar Nagandla. MIT License.
-Made with passion by Sasidhar — https://github.com/slim-format/slim
+Made with passion by Sasidhar — https://slimformat.org
 
 Usage:
     from slim.parser import SLIMParser, ParseMode

@@ -2,7 +2,7 @@
  * SLIM Playground — UI Logic v1.0
  *
  * © 2026 Sasidhar Nagandla. MIT License.
- * Made with passion by Sasidhar — https://github.com/slim-format/slim
+ * Made with passion by Sasidhar — https://slimformat.org
  */
 (function () {
   'use strict';

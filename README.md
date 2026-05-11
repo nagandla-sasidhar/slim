@@ -3,7 +3,7 @@
 **A compact plain-text format for AI prompts, agent configs, and documentation.**  
 `.slm` replaces Markdown when your files are consumed by an LLM — same readability, fewer tokens.
 
-**[Website](https://nagandla-sasidhar.github.io/slim/) · [Playground](https://nagandla-sasidhar.github.io/slim/playground.html) · [Docs](https://nagandla-sasidhar.github.io/slim/docs.html)**
+**[Website](https://slimformat.org) · [Playground](https://slimformat.org/playground.html) · [Docs](https://slimformat.org/docs.html)**
 
 > **43.3% average token reduction** over Markdown, measured on 6 real-world AI agent files  
 > (cl100k_base tokenizer · benchmark included · 2026-05-10)
@@ -54,7 +54,7 @@ python benchmark.py
 
 ### Convert Markdown to SLIM online
 
-Visit the **[SLIM Playground](https://nagandla-sasidhar.github.io/slim/playground.html)** — paste any Markdown, JSON, or plain text and see the SLIM output and token savings instantly.
+Visit the **[SLIM Playground](https://slimformat.org/playground.html)** — paste any Markdown, JSON, or plain text and see the SLIM output and token savings instantly.
 
 ### Use the Python parser
 
@@ -322,4 +322,4 @@ The full language spec is in [`SLIM_SPEC_v1.0.slm`](SLIM_SPEC_v1.0.slm) — a se
 ## License
 
 MIT © 2026 Sasidhar Nagandla  
-Made with passion by Sasidhar — https://github.com/nagandla-sasidhar/slim
+Made with passion by Sasidhar — https://slimformat.org

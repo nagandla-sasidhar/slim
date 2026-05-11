@@ -3,7 +3,7 @@
  * Structured LLM Instruction Markup
  *
  * © 2026 Sasidhar Nagandla. MIT License.
- * Made with passion by Sasidhar — https://github.com/slim-format/slim
+ * Made with passion by Sasidhar — https://slimformat.org
  */
 (function (root, factory) {
   if (typeof module !== 'undefined' && module.exports) module.exports = factory();
