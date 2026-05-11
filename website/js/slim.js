@@ -171,6 +171,35 @@
     return Math.max(1, Math.round(text.length / 4));
   }
 
+  // ── Inline Markdown stripper ────────────────────────────────
+  // Removes decorators that cost tokens but add no semantic value for LLMs.
+  // Called on every non-code, non-blank body line.
+  function _stripInline(s) {
+    // Bold+italic combined: ***text*** / ___text___
+    s = s.replace(/\*{3}(.+?)\*{3}/g, '$1');
+    s = s.replace(/_{3}(.+?)_{3}/g, '$1');
+    // Bold: **text** / __text__
+    s = s.replace(/\*{2}(.+?)\*{2}/g, '$1');
+    s = s.replace(/_{2}(.+?)_{2}/g, '$1');
+    // Italic: *text* — guard against list bullets (lone * at start)
+    s = s.replace(/(?<!\*)\*(?!\s)([^*\n]+?)(?<!\s)\*(?!\*)/g, '$1');
+    // Italic: _text_ — only when not inside a word (keeps variable_names safe)
+    s = s.replace(/(?<![a-zA-Z0-9_])_(?!\s)([^_\n]+?)(?<!\s)_(?![a-zA-Z0-9_])/g, '$1');
+    // Strikethrough: ~~text~~
+    s = s.replace(/~~(.+?)~~/g, '$1');
+    // Inline images mid-line: ![alt](url) → alt text only
+    s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, alt) => alt);
+    // Links: [text](url) → text  (URLs are expensive tokens)
+    s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+    // Reference-style links: [text][ref] → text
+    s = s.replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1');
+    // HTML tags: <br />, <b>, </b>, <details>, etc.
+    s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+    // Collapse multiple spaces left by removals
+    s = s.replace(/  +/g, ' ').trim();
+    return s;
+  }
+
   // ── Markdown → SLIM converter ────────────────────────────────
   function mdToSlm(markdown) {
     if (typeof markdown !== 'string') return '@slim: 1.0\n';
@@ -178,7 +207,7 @@
     const slmHeaders = ['@slim: 1.0'];
     let i = 0;
 
-    // YAML frontmatter
+    // ── YAML front-matter → @headers ────────────────────────────
     if (lines[0] && lines[0].trim() === '---') {
       i = 1;
       while (i < lines.length && lines[i].trim() !== '---') {
@@ -190,44 +219,89 @@
         }
         i++;
       }
-      i++;
+      i++; // skip closing ---
     }
 
     const body = [];
-    let inCode = false, blockName = '', codeIdx = 0;
-    const used = new Set();
+    let inCode = false, codeFence = '';
+    let prevBlank = false;
 
     while (i < lines.length) {
-      const line = lines[i], t = line.trim();
+      const raw = lines[i];
+      const t   = raw.trim();
 
-      if (!inCode && t.startsWith('```')) {
-        const lang = t.slice(3).trim();
-        const base = (lang || 'CODE').toUpperCase().replace(/[^A-Z0-9_]/g, '_') || 'CODE';
-        let name = base; codeIdx++;
-        let sfx = 2; while (used.has(name)) name = `${base}_${sfx++}`;
-        used.add(name); blockName = name; inCode = true;
-        body.push(`=== ${name}` + (lang ? ` [${lang}]` : ''));
-        i++; continue;
+      // ── Code fences: keep verbatim ──────────────────────────────
+      // Backtick fences are MORE compact than === BLOCK syntax.
+      // Converting them would ADD tokens — keep them as-is.
+      if (!inCode && /^(`{3,}|~{3,})/.test(t)) {
+        inCode    = true;
+        codeFence = t.match(/^(`+|~+)/)[1];
+        body.push(raw.replace(/\s+$/, ''));
+        prevBlank = false; i++; continue;
       }
       if (inCode) {
-        if (t === '```') { body.push(`=== /${blockName}`); inCode = false; }
-        else body.push(line.replace(/\s+$/, ''));
-        i++; continue;
+        if (t.startsWith(codeFence)) inCode = false;
+        body.push(raw.replace(/\s+$/, ''));
+        prevBlank = false; i++; continue;
       }
-      // Single-line HTML comment
+
+      // ── HTML comments → ~ or strip ──────────────────────────────
       if (t.startsWith('<!--') && t.endsWith('-->')) {
         const c = t.slice(4, -3).trim();
-        if (c) body.push(`~ ${c}`);
+        if (c) { body.push(`~ ${c}`); prevBlank = false; }
         i++; continue;
       }
-      // Multi-line HTML comment — skip entire block, no-op
       if (t.startsWith('<!--')) {
         while (i < lines.length && !lines[i].includes('-->')) i++;
         i++; continue;
       }
-      body.push(line.replace(/\s+$/, ''));
+
+      // ── Blank lines: collapse multiples into one ─────────────────
+      if (t === '') {
+        if (!prevBlank && body.length > 0) body.push('');
+        prevBlank = true; i++; continue;
+      }
+      prevBlank = false;
+
+      // ── Horizontal rules → strip (pure decoration) ───────────────
+      if (/^[-*_]{3,}\s*$/.test(t)) { i++; continue; }
+
+      // ── Setext-style headings → ATX style ────────────────────────
+      const nextT = (lines[i + 1] || '').trim();
+      if (nextT && /^=+$/.test(nextT) && t.length > 0) {
+        body.push('# ' + _stripInline(t)); i += 2; continue;
+      }
+      if (nextT && /^-{2,}$/.test(nextT) && t.length > 0) {
+        body.push('## ' + _stripInline(t)); i += 2; continue;
+      }
+
+      // ── Link reference definitions: [id]: url → strip ────────────
+      // Already inlined [text] references, so definitions are dead weight
+      if (/^\[[^\]]+\]:\s*https?:\/\/\S+/.test(t)) { i++; continue; }
+
+      // ── Standalone badge / image lines → strip ────────────────────
+      if (/^!\[[^\]]*\]\([^)]*\)\s*$/.test(t)) { i++; continue; }
+
+      // ── Table separator rows |---|---| → strip ────────────────────
+      if (/^\|[\s\-:|]+\|$/.test(t) && !/[a-zA-Z0-9]/.test(t)) { i++; continue; }
+
+      // ── Compact table cell padding ────────────────────────────────
+      if (t.startsWith('|') && t.endsWith('|')) {
+        const compact = t.replace(/\|\s+/g, '| ').replace(/\s+\|/g, ' |');
+        const indent  = raw.match(/^(\s*)/)[1];
+        body.push(indent + _stripInline(compact));
+        i++; continue;
+      }
+
+      // ── All other lines: strip inline decorators ─────────────────
+      const indent  = raw.match(/^(\s*)/)[1];
+      const cleaned = _stripInline(t);
+      if (cleaned) body.push(indent + cleaned);
       i++;
     }
+
+    // Strip trailing blank lines
+    while (body.length && body[body.length - 1] === '') body.pop();
 
     return slmHeaders.join('\n') + '\n\n' + body.join('\n').trimEnd() + '\n';
   }
