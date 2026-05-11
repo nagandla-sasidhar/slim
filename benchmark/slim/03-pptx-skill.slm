@@ -1,0 +1,106 @@
+@slim: 1.0s
+@+name: pptx
+@+desc: Use any time a .pptx file is involved — creating, reading, editing, combining. Trigger on "deck", "slides", "presentation", .pptx filename.
+
+# Quick Reference
+| Task                  | Method |
+| Read/analyze content  | `python -m markitdown presentation.pptx` |
+| Edit from template    | Read editing.md |
+| Create from scratch   | Read pptxgenjs.md |
+
+# Reading
+=== READ_CMDS [bash]
+python -m markitdown presentation.pptx
+python scripts/thumbnail.py presentation.pptx
+python scripts/office/unpack.py presentation.pptx unpacked/
+=== /READ_CMDS
+
+# Editing
+Read editing.md. Steps: analyze template → unpack → edit → clean → pack
+
+# Design Rules
+
+## Before Starting
+- Bold content-informed palette (swappable = not specific enough)
+- Dominance: one color 60-70%, 1-2 support, one sharp accent
+- Contrast: dark for title+conclusion, light for content. Or all-dark throughout.
+- One visual motif repeated on every slide
+
+## Color Palettes
+| Theme              | Primary          | Secondary        | Accent  |
+| Midnight Executive | 1E2761 navy      | CADCFC ice-blue  | FFFFFF  |
+| Forest & Moss      | 2C5F2D forest    | 97BC62 moss      | F5F5F5  |
+| Coral Energy       | F96167 coral     | F9E795 gold      | 2F3C7E  |
+| Warm Terracotta    | B85042           | E7E8D1 sand      | A7BEAE  |
+| Ocean Gradient     | 065A82 deep-blue | 1C7293 teal      | 21295C  |
+| Charcoal Minimal   | 36454F           | F2F2F2 off-white | 212121  |
+| Teal Trust         | 028090           | 00A896 seafoam   | 02C39A  |
+| Berry & Cream      | 6D2E46 berry     | A26769 dusty-rose| ECE2D0  |
+| Sage Calm          | 84B59F sage      | 69A297           | 50808E  |
+| Cherry Bold        | 990011 cherry    | FCF6F5 off-white | 2F3C7E  |
+
+## Per-Slide
+- Every slide needs a visual: image, chart, icon, or shape
+- Layouts: two-column, icon+text rows, 2x2/2x3 grid, half-bleed image
+- Data: large stat callouts (60-72pt numbers), comparison columns, timeline/flow
+
+## Typography
+| Header Font  | Body Font     |
+| Georgia      | Calibri       |
+| Arial Black  | Arial         |
+| Calibri      | Calibri Light |
+| Trebuchet MS | Calibri       |
+| Impact       | Arial         |
+| Palatino     | Garamond      |
+
+| Element        | Size        |
+| Title          | 36-44pt bold |
+| Section header | 20-24pt bold |
+| Body           | 14-16pt     |
+| Captions       | 10-12pt     |
+
+## Avoid
+- Repeating layouts across slides
+- Centered body text (left-align; center titles only)
+- Titles <36pt
+- Default blue — pick topic-specific colors
+- Text-only slides
+- Accent lines under titles [AI tell — never use]
+
+# QA (Required — Assume Problems)
+
+## Content Check
+=== QA_CMDS [bash]
+python -m markitdown output.pptx
+python -m markitdown output.pptx | grep -iE "xxxx|lorem|ipsum|this.*(page|slide).*layout"
+=== /QA_CMDS
+
+## Visual QA
+Use subagents — fresh eyes. Convert to images then inspect:
+
+=== VISUAL_PROMPT
+Visually inspect these slides. Assume issues exist — find them.
+Look for: overlapping elements, text overflow, lines misaligned for wrapped titles,
+citations colliding with content, gaps <0.3", margins <0.5", misaligned columns,
+low-contrast text or icons, excessive wrapping, leftover placeholders.
+List issues per slide, including minor ones.
+=== /VISUAL_PROMPT
+
+## Loop
+1. Generate → convert → inspect
+2. List all issues (none found = look harder)
+3. Fix → re-verify affected slides only
+4. Repeat until clean pass
+
+# Convert to Images
+=== CONVERT [bash]
+python scripts/office/soffice.py --headless --convert-to pdf output.pptx
+pdftoppm -jpeg -r 150 output.pdf slide
+=== /CONVERT
+
+# Dependencies
+- `pip install "markitdown[pptx]"` — text extraction
+- `pip install Pillow` — thumbnails
+- `npm install -g pptxgenjs` — create from scratch
+- LibreOffice soffice — PDF conversion
+- Poppler pdftoppm — PDF to images

@@ -1,0 +1,12 @@
+@slim: 1.0
+@+desc: Summarize all changes in current branch vs main.
+@+allowed-tools: Bash, Read, Glob, Grep
+
+Read all files changed in current branch vs main. Summarize:
+1. Features added or modified
+2. Breaking changes introduced
+3. Files that might need additional tests
+4. Areas needing documentation updates
+5. Current state of work
+
+Help me understand where we left off.

@@ -1,0 +1,129 @@
+@slim: 1.0s
+@+name: claude-setup-audit
+@+desc: Comprehensive quality assessment of Claude Code setup — skills, agents, CLAUDE.md, commands, hooks, MCP. Produces graded health report (A-F) with fixes.
+@+allowed-tools: Read, Grep, Glob, Bash, Write
+@+version: 1.0.0
+@+tags: quality, audit, claude-setup, production-readiness
+
+# Scope
+| Component   | Locations                                              | Max  |
+| Skills      | .claude/skills/*/SKILL.md, plugins/*/skills/*/SKILL.md | 32pt |
+| Agents      | .claude/agents/*.md, plugins/*/agents/*.md             | 32pt |
+| CLAUDE.md   | CLAUDE.md, .claude/CLAUDE.md, **/CLAUDE.md             | 36pt |
+| Commands    | .claude/commands/**/*.md                               | 20pt |
+| Hooks       | .claude/settings.json hooks array                      | 20pt |
+| MCP Config  | .mcp.json, .claude/mcp.json                            | 20pt |
+
+# Phase 1 — Discovery
+=== SCAN [bash]
+find . \( \
+  -path '*/.claude/agents/*.md' -o \
+  -path '*/skills/*/SKILL.md' -o \
+  -path '*/.claude/commands/**/*.md' -o \
+  -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' -o \
+  -name '.mcp.json' -o -path '*/.claude/settings.json' \
+\) -not -path '*/node_modules/*' 2>/dev/null
+
+find . -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' | grep -v node_modules | sort
+find . -type d \( -name 'guides' -o -name 'references' -o -name '.codemie' \) | grep -v node_modules
+=== /SCAN
+
+Detect CLAUDE.md pattern:
+| Pattern | Signals |
+| A — Single + Guide Files | 1 root CLAUDE.md + guide files in guides/, references/, docs/ |
+| B — Hierarchical         | Multiple CLAUDE.md at different directory depths |
+
+Print: `Found: X skills, Y agents, Z commands | Pattern: A/B | Hooks: ✓/✗ | MCP: ✓/✗`
+
+# Phase 2 — Per-Component Scoring
+Mark each criterion: ✅ Pass / ⚠️ Partial (half pts) / ❌ Fail
+
+## Skills — Classify First
+=== CLASSIFY [bash]
+grep -i "codemie.*assistant\|codemie.*chat\|assistants chat" SKILL.md
+=== /CLASSIFY
+- Match → Codemie-delegating (21pt max, content criteria N/A)
+- No match → Standard (32pt max)
+
+Standard Skills (32pt):
+- Structure 3×: valid filename, name [a-z0-9-]+, desc >20 chars, allowed-tools field
+- Content 2×: methodology section, output format, examples, checklists
+- Technical 1×: no absolute paths, no secrets, deps documented
+- Design 2×: single responsibility, "When to use" triggers, <50% overlap, <8K tokens
+
+Agents (32pt):
+- Identity 3×: descriptive name, desc has when/use/trigger, model specified, tools justified
+- Prompt 2×: "You are…" statement, output format, scope/limits, anti-hallucination
+- Validation 1×: 3+ examples, edge cases, error handling
+- Design 2×: single responsibility, composable, <8K tokens
+
+CLAUDE.md (36pt):
+- Coverage 3×: coding standards, workflow policies, critical rules with triggers
+- Clarity 3×: actionable instructions, trigger conditions, explicit prohibitions
+- Structure 2×: section organization, quick-reference tables, correct/incorrect examples
+- Maintenance 1×: no contradictions, versions noted, project context
+- Efficiency 2×: ≤400 non-code words, no anti-pattern noise, delegates via @import
+
+Commands (20pt):
+- Structure 3×: frontmatter (name+desc), argument-hint if uses $ARGUMENTS, numbered phases, examples
+- Quality 2×: error handling, output format, validation gates, argument parsing
+
+Hooks (20pt):
+- Validity 3×: valid JSON, recognized event types, valid matchers
+- Security 2×: no hardcoded credentials, bash uses set -e/trap
+- Quality 2×: purpose documented, scope appropriate
+
+MCP (20pt):
+- Structure 3×: valid JSON, mcpServers key, each server has command/url + type
+- Security 2×: no hardcoded tokens, env vars for credentials
+- Docs 2×: descriptive names, required env vars listed
+
+# Phase 3 — Cross-Component Analysis
+1. Coverage gaps — CLAUDE.md present if agents exist? Skills referenced available?
+2. Naming — all files lowercase-kebab-case?
+3. Duplication — agents/skills with >50% description overlap?
+4. Security sweep: `grep -r "/Users/\|/home/\|password=\|api_key\|token=" .claude/`
+5. Integration — agents reference their skills? Commands invoke relevant agents?
+6. CLAUDE.md knowledge org — Pattern A/B checks per component-checklists.md
+
+# Phase 4 — Grading
+Score = (pts obtained / max pts) × 100 | Overall = average of components
+
+| Grade | Range | Label |
+| A | 90-100% | Production-ready |
+| B | 80-89%  | Good |
+| C | 70-79%  | Needs improvement |
+| D | 60-69%  | Significant gaps |
+| F | <60%    | Critical — rewrite |
+
+Production threshold: B (≥80%) per component.
+
+# Phase 5 — Report
+Follow examples/sample-report.md. For each failure cite example:
+`❌ No role statement → see bad-agent.md:10 vs good-agent.md:8`
+
+Priority: 🔴 Critical (security or grade F) | 🟡 Important (D-C) | 🔵 Minor (B or polish)
+
+# Quick Wins
+| Issue                                  | Score Impact | Effort  |
+| Missing model: in agent                | +3pt         | 1 line  |
+| No allowed-tools in standard skill     | +3pt         | 1 line  |
+| No "When to use" section               | +2-3pt       | 1 para  |
+| Hardcoded /Users/ path                 | +1pt+security| find+replace |
+| No argument-hint for args command      | +3pt         | 1 line  |
+| Missing "You are…" in agent            | +2pt         | 1 line  |
+| No output format section               | +2pt         | 1 section |
+| CLAUDE.md >400 non-code words          | +2pt         | prune   |
+| CLAUDE.local.md not in .gitignore      | security fix | 1 line  |
+| Pattern A: guides not referenced       | +2pt         | add paths |
+| Pattern B: subdir duplicates root      | +2pt         | remove dup |
+
+# Reference Files
+- references/component-checklists.md — full rubric with point values
+- references/best-practices.md — rationale, anti-patterns, quick fixes
+- examples/good-skill.md / bad-skill.md
+- examples/good-agent.md / bad-agent.md
+- examples/good-claude-md-snippet.md / bad-claude-md-snippet.md
+- examples/good-command.md / bad-command.md
+- examples/sample-report.md
+- scripts/scan-repo.sh — inventory all components

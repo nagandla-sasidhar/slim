@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLIM Playground — Convert Markdown to SLIM</title>
+  <meta name="description" content="Paste Markdown, JSON, or plain text and instantly convert to SLIM format. See token savings in real time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src https://fonts.gstatic.com;
+                 img-src 'self' data:; connect-src 'none';
+                 object-src 'none'; base-uri 'self';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <style>
+    body { overflow: hidden; }
+    body.mobile-scroll { overflow: auto; }
+    @media (max-width: 900px) { body { overflow: auto; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">SLIM <span>v1.0</span></a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">← Home</a>
+      <a href="index.html#syntax" class="nav-link">Syntax</a>
+      <a href="docs.html" class="nav-link">Docs</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Playground layout ────────────────────────────────────── -->
+<div id="drop-zone">
+<div class="pg-layout">
+
+  <!-- ── LEFT PANEL: Input ─────────────────────────────────── -->
+  <div class="pg-panel">
+    <div class="pg-panel-header">
+      <span class="pg-title">INPUT</span>
+      <div class="fmt-btns">
+        <button class="fmt-btn active" data-fmt="markdown">Markdown</button>
+        <button class="fmt-btn" data-fmt="json">JSON</button>
+        <button class="fmt-btn" data-fmt="plain">Plain Text</button>
+      </div>
+      <div class="spacer"></div>
+      <select id="example-select" class="example-select" title="Load an example">
+        <option value="">Load example…</option>
+        <option value="md_agent">Agent config (Markdown)</option>
+        <option value="md_prompt">Prompt template (Markdown)</option>
+        <option value="md_readme">README / docs (Markdown)</option>
+        <option value="json_config">Config (JSON)</option>
+        <option value="plain_notes">Plain text notes</option>
+      </select>
+      <button id="btn-upload" class="icon-btn" title="Upload file (.md .json .txt .slm)">📂 Upload</button>
+      <input type="file" id="file-input" accept=".md,.markdown,.json,.txt,.slm" style="display:none" />
+    </div>
+
+    <textarea
+      id="input"
+      class="pg-textarea"
+      placeholder="Paste Markdown, JSON, or plain text here…
+
+Drag & drop a file anywhere on this window, or use Upload button above.
+
+Keyboard shortcut: Ctrl+Enter to convert."
+      spellcheck="false"
+    ></textarea>
+
+    <!-- Input stats -->
+    <div class="pg-stats">
+      <span class="pg-stat">Before: <strong id="tok-before">—</strong> tokens</span>
+      <span class="pg-stat">After: <strong class="teal" id="tok-after">—</strong> tokens</span>
+      <span class="pg-stat">Saved: <strong class="accent" id="tok-saved">—</strong> (<span id="tok-pct">—</span>)</span>
+      <span class="spacer"></span>
+      <span id="stats-saved" class="badge-gray">paste input to see savings</span>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL: Output ───────────────────────────────── -->
+  <div class="pg-panel">
+    <div class="pg-panel-header">
+      <span class="pg-title">SLIM OUTPUT</span>
+      <span style="font-size:0.72rem; color:var(--text-4);">ready to send to LLM · .slm format</span>
+      <div class="spacer"></div>
+      <button id="btn-copy" class="icon-btn">Copy</button>
+      <button id="btn-download" class="icon-btn">⬇ Download .slm</button>
+    </div>
+
+    <div id="output" class="pg-output">
+      <pre id="output-pre"><span class="pl-empty">// converted SLIM will appear here</span></pre>
+    </div>
+
+    <!-- Error banner -->
+    <div id="error-banner" class="error-banner"></div>
+
+    <!-- Output legend -->
+    <div class="pg-stats" style="flex-wrap:wrap; gap:10px;">
+      <span style="font-size:0.72rem; color:var(--text-4); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; width:100%; margin-bottom:2px;">Colour legend</span>
+      <span style="font-size:0.75rem;"><span class="sl-key" style="font-family:var(--font-mono)">@key</span> <span style="color:var(--text-4)">stripped (orchestrator only)</span></span>
+      <span style="font-size:0.75rem;"><span class="sl-llm-key" style="font-family:var(--font-mono)">@+key</span> <span style="color:var(--text-4)">LLM-visible header</span></span>
+      <span style="font-size:0.75rem;"><span class="sl-comment" style="font-family:var(--font-mono)">~ comment</span> <span style="color:var(--text-4)">stripped</span></span>
+      <span style="font-size:0.75rem;"><span class="sl-block" style="font-family:var(--font-mono)">=== BLOCK</span> <span style="color:var(--text-4)">named block</span></span>
+      <span style="font-size:0.75rem;"><span class="sl-var" style="font-family:var(--font-mono)">$var</span> <span style="color:var(--text-4)">interpolated variable</span></span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ── How to use (tooltip/help overlay) ──────────────────────── -->
+<div id="help-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center;">
+  <div style="background:var(--navy-2); border:1px solid var(--border-2); border-radius:var(--radius); padding:32px; max-width:480px; width:90%;">
+    <h3 style="margin-bottom:16px;">How to use the Playground</h3>
+    <ul style="font-size:0.88rem; color:var(--text-2); line-height:2; padding-left:20px;">
+      <li>Paste Markdown, JSON, or plain text in the left panel</li>
+      <li>Select the input format using the buttons above the input</li>
+      <li>The SLIM output appears on the right in real time</li>
+      <li>Upload a file with the 📂 button (supports .md .json .txt)</li>
+      <li>Drag and drop a file anywhere on the window</li>
+      <li>Use <strong>Ctrl+Enter</strong> to force a refresh</li>
+      <li>Token counts use an approximation (1 token ≈ 4 chars)</li>
+    </ul>
+    <button id="btn-help-close"
+      style="margin-top:20px; background:var(--teal); color:white; border:none; padding:9px 20px; border-radius:6px; cursor:pointer; font-weight:600;">
+      Got it
+    </button>
+  </div>
+</div>
+
+<script src="js/slim.js"></script>
+<script src="js/playground.js"></script>
+</body>
+</html>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLIM — Structured LLM Instruction Markup</title>
+  <meta name="description" content="SLIM replaces Markdown for AI documentation and agent configuration. 43.3% fewer tokens, first-class AI primitives, zero rendering overhead." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <!-- Security headers (Finding 3) -->
+  <!-- Note: X-Frame-Options and X-Content-Type-Options must be set as HTTP server headers -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src https://fonts.gstatic.com;
+                 img-src 'self' data:;
+                 connect-src 'none';
+                 object-src 'none';
+                 base-uri 'self';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">SLIM <span>v1.0</span></a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#benchmark"  class="nav-link">Benchmarks</a>
+      <a href="#syntax"     class="nav-link">Syntax</a>
+      <a href="docs.html"   class="nav-link">Docs</a>
+      <a href="playground.html" class="nav-cta">Try Converter →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <div class="hero-badge">✦ Open Format · Zero Dependencies · MIT License</div>
+    <h1>The AI file format<br>that <span class="teal">thinks like you</span> do.</h1>
+    <p class="hero-sub">
+      SLIM replaces Markdown for AI prompts, agent configs, and tool schemas.
+      Strip orchestrator metadata before the LLM call. Save <strong>43% of tokens</strong> on average.
+    </p>
+    <div class="hero-cta">
+      <a href="playground.html" class="btn-primary">Try the Converter →</a>
+      <a href="#syntax" class="btn-secondary">See the Syntax</a>
+    </div>
+
+    <!-- Side-by-side comparison -->
+    <div class="hero-compare">
+      <!-- Markdown side -->
+      <div class="compare-panel">
+        <div class="compare-header">
+          <span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+          <span>agent-config.md</span>
+          <span class="compare-label label-md">Markdown · ~118 tokens sent to LLM</span>
+        </div>
+        <pre class="compare-body">---
+model: claude-opus-4-7
+agent: CodeReviewer
+task: PR-942
+retry: 3
+---
+
+&lt;!-- System prompt --&gt;
+# Role
+You are a senior code reviewer for PR-942.
+
+# Instructions
+- Check for security vulnerabilities
+- Flag breaking changes
+- Be concise and direct
+
+```python
+def review(diff):
+    return analyze(diff)
+```</pre>
+      </div>
+
+      <div class="compare-arrow">→</div>
+
+      <!-- SLIM side -->
+      <div class="compare-panel">
+        <div class="compare-header">
+          <span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+          <span>agent-config.slm</span>
+          <span class="compare-label label-slim">SLIM · ~72 tokens sent to LLM</span>
+        </div>
+        <pre class="compare-body"><span class="sl-key">@slim</span><span class="sl-punct">:</span> 1.0
+<span class="sl-key">@model</span><span class="sl-punct">:</span> <span class="sl-stripped">claude-opus-4-7  ← stripped</span>
+<span class="sl-key">@retry</span><span class="sl-punct">:</span> <span class="sl-stripped">3  ← stripped</span>
+<span class="sl-llm-key">@+agent</span><span class="sl-punct">:</span> CodeReviewer
+<span class="sl-llm-key">@+task</span><span class="sl-punct">:</span> PR-942
+<span class="sl-comment">~ System prompt</span>
+<span class="sl-heading"># Role</span>
+You are a senior code reviewer for <span class="sl-var">$task</span>.
+
+<span class="sl-heading"># Instructions</span>
+- Check for security vulnerabilities
+- Flag breaking changes
+- Be concise and direct
+
+<span class="sl-block">=== REVIEW [python]</span>
+def review(diff):
+    return analyze(diff)
+<span class="sl-block">=== /REVIEW</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats bar ──────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <span class="stat-num">43.3%</span>
+      <span class="stat-label">avg token savings</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">85/85</span>
+      <span class="stat-label">conformance tests pass</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">0</span>
+      <span class="stat-label">runtime dependencies</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">8</span>
+      <span class="stat-label">directive keywords</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Problem ────────────────────────────────────────────────── -->
+<section id="problem">
+  <div class="container">
+    <span class="section-tag">The Problem</span>
+    <h2 class="section-title">Markdown was built for humans.<br>Not for AI pipelines.</h2>
+    <p class="section-sub">Every token costs money and latency. Markdown makes you pay for metadata that the LLM never needs.</p>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="problem-icon">💸</div>
+        <h3>Metadata burns tokens</h3>
+        <p>Model name, retry count, timeouts — orchestrator config that the LLM never reads still gets sent to it, wasting tokens on every call.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">🔓</div>
+        <h3>No injection boundaries</h3>
+        <p>Markdown has no concept of block boundaries. A user who pastes <code>---</code> or a frontmatter key can silently override your system config.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">🧩</div>
+        <h3>No AI-native primitives</h3>
+        <p>There's no standard way to define tool schemas, declare variables, write directives, or separate orchestrator intent from LLM instructions.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">🔁</div>
+        <h3>Manual string templating</h3>
+        <p>Injecting dynamic values like agent name or task ID requires ad-hoc string interpolation outside the format, making prompts brittle.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ───────────────────────────────────────────────── -->
+<section id="features" class="features">
+  <div class="container">
+    <span class="section-tag">Features</span>
+    <h2 class="section-title">Everything a prompt format should have.</h2>
+    <p class="section-sub">Six first-class primitives that cover every AI workflow need — all in one clean, human-writable format.</p>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">🔇</div>
+        <h3>Token Stripping</h3>
+        <p><code>@key</code> headers are consumed by the orchestrator and never forwarded to the LLM. Zero extra tokens for config metadata.</p>
+        <div class="feature-code">@model: claude-opus-4-7  <span class="sl-comment">← stripped</span>
+@retry: 3              <span class="sl-comment">← stripped</span>
+@+agent: Reviewer      <span class="sl-comment">← LLM sees this</span></div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔗</div>
+        <h3>Variable Interpolation</h3>
+        <p>Define values in headers and reference them with <code>$var</code> anywhere in the body. Resolved before the LLM call — no template engine needed.</p>
+        <div class="feature-code">@+task: PR-942
+
+You are reviewing <span class="sl-var">$task</span> today.
+<span class="sl-comment">→ "You are reviewing PR-942 today."</span></div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h3>Block Zones</h3>
+        <p>Named, typed content blocks with hard injection boundaries. Escaped content can't break out of its block.</p>
+        <div class="feature-code"><span class="sl-block">=== SCHEMA [json]</span>
+{"name": "string"}
+<span class="sl-block">=== /SCHEMA</span></div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🛠️</div>
+        <h3>Schema Definitions</h3>
+        <p>First-class <code>:tool_name</code> syntax for AI function call schemas. Required/optional fields, defaults, and typed return values.</p>
+        <div class="feature-code">:search_web
+  desc: Search the internet
+  query!: str
+  limit?: int = 10
+  -> results: json</div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Directive System</h3>
+        <p>Structured <code>&gt; KEYWORD</code> workflow primitives for AI agent pipelines. CALL, ASSERT, YIELD, EMIT, LOG, ABORT, WAIT, RETRY.</p>
+        <div class="feature-code"><span class="sl-directive">&gt; CALL analyze(diff: $pr_diff)</span>
+<span class="sl-directive">&gt; ASSERT $result.passed == true</span>
+<span class="sl-directive">&gt; YIELD $result.report</span></div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Security Model</h3>
+        <p>Built-in <code>sanitize_user_content()</code> escapes all SLIM sigils before user text is embedded. Header injection prevention by design.</p>
+        <div class="feature-code"><span class="sl-comment">~ @ $ &gt; === ~ all escaped</span>
+result = sanitize_user_content(
+  user_input
+)</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Benchmark ──────────────────────────────────────────────── -->
+<section id="benchmark">
+  <div class="container">
+    <span class="section-tag">Token Benchmark</span>
+    <h2 class="section-title text-center">Real files. Real savings.</h2>
+    <p class="section-sub center">Six real-world AI config and prompt files converted from Markdown. Measured with cl100k_base (OpenAI/Anthropic tokenizer).</p>
+
+    <div class="bench-avg">
+      <div class="bench-big">43.3%</div>
+      <div class="bench-sub">average token reduction across all files</div>
+    </div>
+
+    <div class="bench-bars">
+      <div class="bench-row">
+        <span class="bench-name">find-skills.slm</span>
+        <div class="bench-track"><div class="bench-fill high" style="width:67.7%"></div></div>
+        <span class="bench-pct">67.7%</span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-name">pptx-skill.slm</span>
+        <div class="bench-track"><div class="bench-fill high" style="width:54.2%"></div></div>
+        <span class="bench-pct">54.2%</span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-name">setup-audit.slm</span>
+        <div class="bench-track"><div class="bench-fill" style="width:38.1%"></div></div>
+        <span class="bench-pct">38.1%</span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-name">CLAUDE.md</span>
+        <div class="bench-track"><div class="bench-fill" style="width:36.1%"></div></div>
+        <span class="bench-pct">36.1%</span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-name">roadmap.slm</span>
+        <div class="bench-track"><div class="bench-fill" style="width:29.6%"></div></div>
+        <span class="bench-pct">29.6%</span>
+      </div>
+      <div class="bench-row">
+        <span class="bench-name">codemie-catchup</span>
+        <div class="bench-track"><div class="bench-fill" style="width:14.7%"></div></div>
+        <span class="bench-pct">14.7%</span>
+      </div>
+    </div>
+
+    <p style="text-align:center; color:var(--text-4); font-size:0.82rem; margin-top:24px;">
+      Measured as: (MD tokens − SLIM stripped tokens) / MD tokens × 100<br>
+      "Stripped" means orchestrator-only @headers and ~ comments removed before LLM call.
+    </p>
+  </div>
+</section>
+
+<!-- ── Syntax guide ────────────────────────────────────────────── -->
+<section id="syntax" class="syntax-guide">
+  <div class="container">
+    <span class="section-tag">Syntax Reference</span>
+    <h2 class="section-title">Clean. Consistent. Learnable in 5 minutes.</h2>
+
+    <div class="syntax-tabs">
+      <button class="tab-btn active" onclick="showTab('sigils', event)">Sigil Table</button>
+      <button class="tab-btn" onclick="showTab('example', event)">Full Example</button>
+      <button class="tab-btn" onclick="showTab('schemas', event)">Schemas</button>
+      <button class="tab-btn" onclick="showTab('types', event)">Type System</button>
+    </div>
+
+    <!-- Sigil table -->
+    <div id="tab-sigils" class="tab-panel active">
+      <div class="code-block">
+        <table class="sigil-table">
+          <thead><tr><th>Sigil</th><th>Zone</th><th>Description</th><th>In LLM Text?</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="sigil">@key: value</span></td>
+              <td class="sigil-note">Header</td>
+              <td class="sigil-desc">Orchestrator-only metadata. Model name, retry count, timeout. Auto-coerced to int/float/bool/null/list.</td>
+              <td><span class="badge badge-strip">stripped</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">@+key: value</span></td>
+              <td class="sigil-note">Header</td>
+              <td class="sigil-desc">LLM-visible header. Appears at the top of LLM text. Also available as <code>$key</code> variable.</td>
+              <td><span class="badge badge-visible">visible</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">~ text</span></td>
+              <td class="sigil-note">Any</td>
+              <td class="sigil-desc">Comment line. Stripped before LLM call. Great for author notes, change logs, debugging hints.</td>
+              <td><span class="badge badge-strip">stripped</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">$var</span></td>
+              <td class="sigil-note">Body</td>
+              <td class="sigil-desc">Variable reference. Resolved from @key or @+key headers. Dot-path access: <code>$obj.field</code>.</td>
+              <td><span class="badge badge-sub">substituted</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">=== NAME [type]</span><br><span class="sigil">=== /NAME</span></td>
+              <td class="sigil-note">Body</td>
+              <td class="sigil-desc">Named block with optional type tag. Hard injection boundary — <code>\===</code> inside is literal. Blocks can be nested one level.</td>
+              <td><span class="badge badge-visible">visible</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">&gt; KEYWORD args</span></td>
+              <td class="sigil-note">Body</td>
+              <td class="sigil-desc">Directive. CALL, ASSERT, YIELD, EMIT, LOG, ABORT, WAIT, RETRY. ALL_CAPS only — prose <code>&gt;</code> is not parsed.</td>
+              <td><span class="badge badge-visible">visible</span></td>
+            </tr>
+            <tr>
+              <td><span class="sigil">:tool_name</span></td>
+              <td class="sigil-note">Body</td>
+              <td class="sigil-desc">Schema definition block. Indented properties with <code>!</code> (required), <code>?</code> (optional). Return type with <code>-&gt;</code>.</td>
+              <td><span class="badge badge-visible">visible</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Full example -->
+    <div id="tab-example" class="tab-panel">
+      <div class="code-block">
+        <div class="code-block-header"><span>agent-config.slm</span></div>
+        <pre><span class="sl-comment">~ SLIM v1.0 complete example</span>
+<span class="sl-key">@slim</span>: 1.0
+<span class="sl-key">@model</span>: claude-opus-4-7     <span class="sl-comment">~ stripped from LLM</span>
+<span class="sl-key">@retry</span>: 3                   <span class="sl-comment">~ stripped from LLM</span>
+<span class="sl-key">@timeout</span>: 30               <span class="sl-comment">~ stripped from LLM</span>
+<span class="sl-llm-key">@+agent</span>: SecurityBot       <span class="sl-comment">~ LLM-visible</span>
+<span class="sl-llm-key">@+task</span>: PR-942             <span class="sl-comment">~ LLM-visible + interpolatable</span>
+
+<span class="sl-heading"># Role</span>
+You are <span class="sl-var">$agent</span>, a security-focused code reviewer assigned to <span class="sl-var">$task</span>.
+
+<span class="sl-heading"># Instructions</span>
+- Check for OWASP Top 10 vulnerabilities
+- Review SQL queries for injection risks
+- Flag insecure deserialization patterns
+
+<span class="sl-block">=== CONTEXT [markdown]</span>
+PR title: Fix authentication flow
+Changed files: auth.py, session.py
+<span class="sl-block">=== /CONTEXT</span>
+
+<span class="sl-directive">&gt; CALL analyze_pr(id: <span class="sl-var">$task</span>, depth: full)</span>
+<span class="sl-directive">&gt; ASSERT $result.severity != "critical"</span>
+<span class="sl-directive">&gt; YIELD $result.summary</span></pre>
+      </div>
+    </div>
+
+    <!-- Schemas -->
+    <div id="tab-schemas" class="tab-panel">
+      <div class="code-block">
+        <div class="code-block-header"><span>tools.slm — Schema definitions</span></div>
+        <pre><span class="sl-key">@slim</span>: 1.0s
+
+<span class="sl-comment">~ Tool definitions for function calling</span>
+
+:search_web
+  desc: Search the internet for recent information
+  query!: str
+  max_results?: int = 10
+  safe_search?: bool = true
+  -> results: json
+
+:run_code
+  desc: Execute code in a sandboxed environment
+  language!: [python|javascript|bash]
+  code!: str
+  timeout?: int = 30
+  -> output: str
+  -> exit_code: int
+
+:send_email
+  desc: Send an email via the outbox queue
+  to!: str
+  subject!: str
+  body!: str
+  cc?: str
+  priority?: [low|normal|high] = normal
+  -> message_id: uuid</pre>
+      </div>
+    </div>
+
+    <!-- Types -->
+    <div id="tab-types" class="tab-panel">
+      <div class="code-block">
+        <div class="code-block-header"><span>SLIM type system</span></div>
+        <pre><span class="sl-comment">~ Primitive types</span>
+@count: 42            <span class="sl-comment">→ int</span>
+@ratio: 0.85          <span class="sl-comment">→ float</span>
+@active: true         <span class="sl-comment">→ bool</span>
+@ctx: null            <span class="sl-comment">→ None/null</span>
+@name: Alice          <span class="sl-comment">→ str (default)</span>
+@id: "42"             <span class="sl-comment">→ str (quoted, prevents int)</span>
+
+<span class="sl-comment">~ List (comma-separated)</span>
+@stack: python, js, go  <span class="sl-comment">→ ["python", "js", "go"]</span>
+
+<span class="sl-comment">~ Multi-line continuation</span>
+@desc: First line
+  second line           <span class="sl-comment">→ "First line second line"</span>
+
+<span class="sl-comment">~ Schema types</span>
+name!: str            <span class="sl-comment">→ required string</span>
+age?: int = 18        <span class="sl-comment">→ optional int, default 18</span>
+env!: [prod|staging|dev]  <span class="sl-comment">→ enum</span>
+items?: list&lt;str&gt;    <span class="sl-comment">→ typed list</span>
+meta?: dict&lt;str,any&gt; <span class="sl-comment">→ typed dict</span></pre>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── CTA ────────────────────────────────────────────────────── -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Try the converter now.</h2>
+    <p>Paste your Markdown, JSON, or plain text — get SLIM output instantly. See how many tokens you save.</p>
+    <div class="hero-cta">
+      <a href="playground.html" class="btn-primary">Open Playground →</a>
+      <a href="https://github.com" class="btn-secondary" target="_blank">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v1.0</span></div>
+      <div class="footer-links">
+        <a href="playground.html">Playground</a>
+        <a href="#syntax">Spec</a>
+        <a href="#benchmark">Benchmarks</a>
+      </div>
+      <div class="footer-copy">© 2026 Sasidhar Nagandla · Made with passion · MIT License · Zero runtime dependencies</div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/tabs.js"></script>
+
+</body>
+</html>

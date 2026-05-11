@@ -1,0 +1,593 @@
+@slim: 1.0
+@+title: SLIM — Structured LLM Instruction Markup
+@+version: 1.0.0
+@+status: draft
+@+authors: Sasidhar Nagandla
+@+date: 2026-05-10
+@+license: TBD (open source)
+@+extension: .slm
+@+mime: text/slim
+@+encoding: UTF-8
+
+~ ============================================================
+~ SLIM v1.0 — FORMAL SPECIFICATION
+~ ============================================================
+
+# 1. Overview
+
+SLIM (Structured LLM Instruction Markup) is a plain-text file format designed for AI
+documentation, agent configuration, and prompt engineering. It replaces Markdown as the
+primary format for files consumed by Large Language Models (LLMs) and AI orchestration
+systems.
+
+SLIM achieves an average 43% token reduction over Markdown on real-world AI agent files
+(measured on cl100k_base tokenizer, 6-file benchmark, 2026-05-10).
+
+## 1.1 Design Goals
+- Token efficiency: minimize characters sent to LLM without losing semantic precision
+- Semantic clarity: every structural element has unambiguous, single meaning
+- Dual-author: readable and writable by both humans and AI systems
+- Injection safety: hard block boundaries prevent prompt injection attacks
+- All-purpose: covers system prompts, agent configs, tool schemas, docs, orchestration
+- Parser-friendly: unambiguous grammar, no context-sensitive edge cases
+
+## 1.2 Core Architecture — Three Zones
+
+Every SLIM file is divided into three strictly ordered zones:
+
+=== ZONE_DIAGRAM [ascii]
+┌─────────────────────────────────────────────────────┐
+│  HEADER ZONE  (@key: value lines)                   │
+│  Consumer: Orchestrator/parser only                 │
+│  LLM sees: NO (stripped before LLM call)            │
+│  Exception: @+ prefixed lines → LLM sees YES        │
+├─────────────────────────────────────────────────────┤
+│  BODY ZONE  (prose, headings, bullets, directives)  │
+│  Consumer: LLM (primary) + parser (variables)       │
+│  LLM sees: YES (after variable interpolation)       │
+├─────────────────────────────────────────────────────┤
+│  BLOCK ZONE  (=== NAME ... === /NAME)               │
+│  Consumer: LLM sees block content verbatim          │
+│  Parser: extracts blocks as named typed payloads    │
+│  Location: anywhere in Body Zone                    │
+└─────────────────────────────────────────────────────┘
+=== /ZONE_DIAGRAM
+
+# 2. Header Zone
+
+## 2.1 Syntax
+
+The header zone begins at the first line of the file and ends at the first line that is
+neither an @-prefixed line, a blank line, nor a --- separator.
+
+```
+@key: value
+@+key: value
+@include: path
+```
+
+Rules:
+- Key must be lowercase ASCII: [a-z][a-z0-9_-]*
+- Separator: first ": " (colon + space). Value may contain subsequent colons.
+- Multi-line value: continuation with 2-space indent on next line(s)
+- Header zone terminates at first # heading or non-blank non-@ line
+
+## 2.2 Strip Semantics
+
+| Prefix | LLM sees? | Variable interpolated? | Notes |
+| @key   | No        | Yes ($key → value)     | Orchestrator-only metadata |
+| @+key  | Yes       | Yes ($key → value)     | Context the LLM needs |
+
+This is the primary token efficiency mechanism. Configuration metadata never reaches LLM.
+
+## 2.3 Reserved Header Keys
+
+| Key         | Type     | Description |
+| @slim       | str      | Format version declaration. Required. |
+| @agent      | str      | Agent identifier (use @+agent to send to LLM) |
+| @model      | str      | Target model. Never sent to LLM (@model only). |
+| @mode       | str      | Execution mode |
+| @retry      | int      | Retry limit for orchestrator |
+| @timeout    | str      | Timeout duration (e.g. 30s, 5m) |
+| @tags       | list<str>| Metadata tags for indexing |
+| @include    | url/path | Import another .slm file (resolved first) |
+| @version    | str      | Document version |
+
+Custom keys are permitted. All keys parsed as typed values (see Section 6).
+
+## 2.4 Type Coercion
+
+Header values are automatically typed:
+
+| Value Pattern | Inferred Type | Example |
+| true / false  | bool          | @async: true |
+| Integer       | int           | @retry: 3 |
+| Decimal       | float         | @threshold: 0.7 |
+| null / none   | null          | @context: null |
+| a, b, c       | list<str>     | @stack: python, js, go |
+| "42"          | str (forced)  | @id: "42" |
+| Anything else | str           | @name: SecurityBot |
+
+## 2.5 @include Directive
+
+```
+@include: ./base/agent.slm
+@include: ./tools/mcp_tools.slm
+```
+
+- Resolved by parser before any other processing
+- Included file's @+ headers merge into current file's LLM context
+- Included file's @ headers are defaults (current file overrides)
+- Circular includes: parse error
+- Max include depth: 5 levels
+- @include is always stripped (@+include is invalid)
+
+## 2.6 Multi-Document Files
+
+Use --- (triple dash on its own line) to separate independent documents in one file.
+Each document is parsed independently with its own header zone.
+
+```
+@slim: 1.0
+@+agent: Planner
+# Role
+You plan tasks.
+---
+@slim: 1.0
+@+agent: Executor
+# Role
+You execute tasks.
+```
+
+# 3. Body Zone
+
+## 3.1 Structural Elements
+
+| Sigil   | Meaning            | Scope |
+| #       | H1 section heading | Body  |
+| ##      | H2 subsection      | Body  |
+| ###     | H3 deep section    | Body  |
+| -       | Bullet point       | Body  |
+| 1.      | Ordered step       | Body  |
+| >KEYWORD| Directive command  | Body  |
+| $key    | Variable reference | Body  |
+| \|col\| | Table row          | Body  |
+| ~       | Comment (stripped) | Anywhere |
+| \X      | Literal escape     | Anywhere |
+
+## 3.2 Directives
+
+Directives are lines beginning with > followed immediately by a reserved ALL_CAPS keyword.
+No space between > and keyword is required; one space is canonical.
+
+Reserved keywords: CALL, ASSERT, YIELD, EMIT, LOG, ABORT, WAIT, RETRY
+
+```
+> CALL tool_name(param: value, param2: $var)
+> ASSERT $result.status == complete
+> YIELD $result.report
+> EMIT event_name(payload: $data)
+> LOG "Step completed"
+> ABORT "Reason for stopping"
+> WAIT 5s
+> RETRY 3
+```
+
+A > followed by anything other than a reserved keyword is treated as literal text.
+Example: "> 90% of bugs..." — not a directive.
+
+## 3.3 Variable References
+
+$key references are interpolated by the parser before the body is sent to the LLM.
+
+- $key — simple reference (must match a header key, case-sensitive)
+- $result.field — runtime dotpath reference (resolved by orchestrator at runtime)
+- $list[0] — indexed reference (runtime)
+- Literal dollar sign: \$amount → "$amount" verbatim
+- Variables in content containing newlines: only first line used
+
+## 3.4 Tables
+
+Table rows use pipe-delimited syntax. No separator row is required (unlike Markdown).
+First row is treated as the header.
+
+```
+| Format | Tokens | Readable |
+| JSON   | 340    | Medium   |
+| SLIM   | 175    | High     |
+```
+
+Empty cells: || (adjacent pipes). Alignment: parser does not enforce, renderers may.
+
+## 3.5 Inline Formatting
+
+Markdown-compatible inline formatting (optional, parser passes through verbatim):
+
+- `code` — inline code
+- *bold* — bold text
+- _italic_ — italic text
+
+No links in v1. No inline images (use === BLOCK [base64:type] for images).
+
+## 3.6 Comments
+
+Lines starting with ~ (tilde) are stripped by all SLIM parsers before any output.
+They never reach the LLM. Use for author notes, TODOs, disabled content.
+
+```
+~ Author: Jane Doe
+~ TODO: add edge case for empty input
+~ @+agent: DisabledAgent  ← this line is never parsed
+```
+
+# 4. Block Zone
+
+## 4.1 Syntax
+
+```
+=== BLOCK_NAME
+content
+=== /BLOCK_NAME
+
+=== BLOCK_NAME [type]
+typed content
+=== /BLOCK_NAME
+```
+
+Rules:
+- Block names: SCREAMING_SNAKE_CASE, ASCII only, [A-Z][A-Z0-9_]*
+- Closing tag must exactly mirror the opening name (case-insensitive match)
+- Type tag is optional: [python], [json], [sql], [bash], [raw], [csv], [base64:png], etc.
+- Blocks can appear anywhere in the body zone
+- Nesting: single level only (one block inside another is valid; deeper is a parse error)
+- Empty blocks are valid (parser returns empty string for content)
+
+## 4.2 Block Content Rules
+
+- Content is captured verbatim (whitespace preserved, blank lines preserved)
+- Escape: any line inside a block starting with === must be prefixed with \
+  Example: \=== /MY_BLOCK → literal "=== /MY_BLOCK" in content
+- Parsers must reject unescaped === lines inside block content at parse time
+
+## 4.3 Nested Blocks (single level)
+
+Useful for few-shot examples and grouped content sets:
+
+```
+=== EXAMPLES
+
+=== EXAMPLE_1
+user: Is this SQL safe?
+assistant: No — SQL injection risk on line 2.
+=== /EXAMPLE_1
+
+=== EXAMPLE_2
+user: How do I fix it?
+assistant: Use parameterized queries.
+=== /EXAMPLE_2
+
+=== /EXAMPLES
+```
+
+## 4.4 Special Block Types
+
+| Type         | Meaning |
+| [python]     | Python source code |
+| [js]         | JavaScript source |
+| [json]       | JSON data |
+| [sql]        | SQL query |
+| [bash]       | Shell commands |
+| [raw]        | Uninterpreted text |
+| [csv]        | Comma-separated data |
+| [ascii]      | ASCII art / diagrams |
+| [base64:png] | Base64-encoded PNG image |
+| [base64:jpg] | Base64-encoded JPEG image |
+
+# 5. Schema Definitions
+
+## 5.1 Tool Schema Syntax
+
+Tool schemas define callable functions/tools available to the agent.
+Schema blocks begin with :tool_name (colon prefix) and use 2-space indented properties.
+
+```
+:tool_name
+  desc: Human-readable description of what this tool does
+  param1!: type
+  param2?: type = default_value
+  param3?: [option_a|option_b|option_c] = option_a
+  -> return_field: type, return_field2: type
+```
+
+Property suffixes:
+- ! = required (parse error if missing at call time)
+- ? = optional
+- = value = default value (implies optional)
+
+## 5.2 Custom Type Definitions
+
+```
+=== TYPE_DEF
+  TypeName:
+    field1!: type
+    field2?: type = default
+=== /TYPE_DEF
+```
+
+Custom types can then be used in schema definitions: `-> results: list<TypeName>`
+
+## 5.3 Complete Schema Example
+
+```
+=== TYPE_DEF
+  Finding:
+    line!: int
+    severity!: [low|medium|high|critical]
+    message!: str
+    fix?: str
+=== /TYPE_DEF
+
+:analyze_code
+  desc: Run static analysis on a code snippet
+  code!: str
+  language?: [python|js|java|go|rust] = python
+  ruleset?: [owasp|cwe|custom] = owasp
+  depth?: int = 3
+  -> score: float, findings: list<Finding>, summary: str
+```
+
+# 6. Type System
+
+## 6.1 Primitive Types
+
+| Type     | Description | Examples |
+| str      | UTF-8 string | "hello", hello |
+| int      | Integer | 3, -10, 0 |
+| float    | Decimal | 0.7, -1.5, 3.14 |
+| bool     | Boolean | true, false |
+| null     | Null/None | null, none |
+
+## 6.2 First-Class Types
+
+| Type     | Description | Validation |
+| datetime | ISO 8601 datetime | 2026-05-10T14:30:00Z |
+| url      | Valid URL | https://example.com |
+| uuid     | UUID v4 | 550e8400-e29b-41d4-a716 |
+| json     | Arbitrary JSON object | Any valid JSON |
+
+## 6.3 Collection Types
+
+| Type       | Syntax | Example |
+| Enum       | [a\|b\|c] | [prod\|staging\|dev] |
+| List       | list<T> | list<str>, list<Finding> |
+| Dict       | dict<K,V> | dict<str,int> |
+
+## 6.4 User-Defined Types
+
+Defined in === TYPE_DEF blocks. Reusable across schema definitions in the same file
+or in files that @include this file.
+
+# 7. Security Model
+
+## 7.1 Zone Ordering Enforcement
+
+The header zone MUST precede the body zone. Any @key found after the first # heading
+or non-blank non-@ line is treated as literal body text, not a header.
+
+This prevents header injection: user-provided content placed before headers cannot
+inject @model, @include, or other orchestrator-controlled fields.
+
+## 7.2 Block Boundary Injection
+
+All parsers MUST validate that block content does not contain unescaped === lines.
+Unescaped === inside a block = parse error (strict mode) or warning (lenient mode).
+
+## 7.3 Variable Value Sanitization
+
+Variable values containing newline characters: only first line is used.
+Parsers MUST provide sanitize_user_content(str) → str that escapes:
+  @, $, >, ===, ~  →  \@, \$, \>, \===, \~
+
+Use this function on any user-provided string before embedding in a SLIM file.
+
+## 7.4 @include Path Traversal
+
+@include paths are resolved relative to the including file's directory.
+Absolute paths: allowed but should be flagged by linters.
+Network URLs: parser-implementation-dependent (disabled by default).
+Circular includes: detect and raise parse error.
+
+# 8. Parser Behaviour
+
+## 8.1 Parse Modes
+
+| Mode    | On error | Use case |
+| strict  | Raise exception with line number | Linters, CI validation |
+| lenient | Collect warnings, return partial result | LLM-facing production parsers |
+
+## 8.2 Output Structure
+
+A parsed SLIM document produces:
+
+```
+SLIMDocument:
+  version: str
+  headers: dict<str, any>          # all @ headers (stripped)
+  llm_headers: dict<str, any>      # @+ headers (LLM-visible)
+  sections: list<Section>          # # heading + content
+  blocks: dict<str, Block>         # named blocks by name
+  schemas: dict<str, Schema>       # :tool definitions
+  directives: list<Directive>      # > KEYWORD calls
+  body_text: str                   # full body, variables interpolated
+  stripped_text: str               # body_text minus ~ comments
+```
+
+## 8.3 Strip Mode
+
+strip_mode=True removes @ headers and ~ comments before returning body_text.
+This is the text that should be sent to the LLM.
+
+## 8.4 Round-Trip Canonical Form
+
+slim fmt produces canonical form:
+- One blank line between sections
+- No trailing whitespace
+- Block names in SCREAMING_SNAKE_CASE
+- Schema properties: required (!) first, optional (?) second, alphabetical within each group
+- Consistent 2-space indentation in schemas
+
+## 8.5 Whitespace Rules
+
+| Rule |
+| Indentation: spaces only. Tabs = parse error in schemas. |
+| Blank lines between sections: ignored. |
+| Blank lines inside === blocks: preserved verbatim. |
+| Trailing spaces on all lines: stripped. |
+| BOM (UTF-8 byte order mark): stripped silently. |
+
+# 9. BNF Grammar
+
+```
+document    ::= header_zone body_zone
+header_zone ::= (header_line | blank_line)*
+header_line ::= at_key ": " value newline
+              | "@include" ": " path newline
+at_key      ::= ("@" | "@+") [a-z][a-z0-9_-]*
+body_zone   ::= (section | block | schema | directive | table_row
+                | bullet | ordered_step | paragraph | comment | blank_line)*
+section     ::= "#"+ " " text newline
+block       ::= block_open block_content block_close
+block_open  ::= "===" " " BLOCK_NAME (" [" type "]")? newline
+block_close ::= "===" " /" BLOCK_NAME newline
+block_content ::= (escaped_line | non_boundary_line)*
+escaped_line  ::= "\===" text newline
+schema      ::= ":" identifier newline property+
+property    ::= "  " identifier ("!" | "?")? ": " type (" = " value)? newline
+              | "  " "->" " " return_spec newline
+directive   ::= ">" " " KEYWORD (" " args)? newline
+table_row   ::= "|" (cell "|")+ newline
+bullet      ::= "-" " " text newline
+ordered_step ::= [0-9]+ "." " " text newline
+comment     ::= "~" text? newline
+variable_ref ::= "$" identifier ("." identifier | "[" integer "]")*
+BLOCK_NAME  ::= [A-Z][A-Z0-9_]*
+KEYWORD     ::= "CALL" | "ASSERT" | "YIELD" | "EMIT" | "LOG" | "ABORT" | "WAIT" | "RETRY"
+```
+
+# 10. File Metadata
+
+| Property  | Value |
+| Extension | .slm |
+| MIME type | text/slim |
+| Encoding  | UTF-8 (BOM optional, stripped) |
+| Line endings | LF preferred, CRLF tolerated |
+| Max header value | 2048 characters |
+| Max include depth | 5 levels |
+| Max block nesting | 1 level |
+| Block name charset | ASCII uppercase + underscore + digits |
+
+# 11. Migration Guide from Markdown
+
+## 11.1 Structural Equivalences
+
+| Markdown | SLIM | Notes |
+| --- frontmatter | @key: value header | SLIM strips by default; use @+ to expose |
+| # Heading | # Heading | Identical |
+| - bullet | - bullet | Identical |
+| 1. step | 1. step | Identical |
+| \`\`\`lang code \`\`\` | === BLOCK [lang] ... === /BLOCK | Named + typed |
+| <!-- comment --> | ~ comment | Shorter |
+| \| col \| col \| \n \|---\|---\| | \| col \| col \| (no separator row) | Saves ~6 tokens per table |
+| *bold* | *bold* | Identical |
+| \`inline\` | \`inline\` | Identical |
+
+## 11.2 SLIM-Only Features (no Markdown equivalent)
+
+- @key header stripping (tokens never reach LLM)
+- $variable interpolation
+- > DIRECTIVE command syntax
+- :tool schema definitions with typed params
+- === block type tags
+- ~ comments (stripped silently, not passed to LLM)
+- === boundary injection protection
+- list<T>, dict<K,V>, [enum|values] types
+
+## 11.3 Migration Steps
+
+1. Rename file from .md to .slm
+2. Convert YAML frontmatter (---) to @key: / @+key: headers
+3. Remove --- frontmatter delimiters
+4. Replace ``` code blocks with === BLOCK_NAME [lang] ... === /BLOCK_NAME
+5. Replace <!-- comments --> with ~ comments
+6. Remove | --- | separator rows from all tables
+7. Add @slim: 1.0 as first header line
+8. Run: slim validate yourfile.slm
+
+# 12. Versioning
+
+SLIM version is declared in @slim: header. Current: 1.0
+
+| Version | Status | Notes |
+| 1.0     | Current | Base spec |
+| 1.0+    | Planned | + tables, imports, multi-doc, nested blocks |
+| 1.0s    | Current | + schema definitions (:tool, TYPE_DEF) |
+| 2.0     | Future  | + ? conditional blocks, loop constructs |
+
+# 13. Complete Reference Example
+
+=== FULL_EXAMPLE [slim]
+@slim: 1.0s
+@include: ./base/code_reviewer.slm
+@model: claude-opus-4
+@retry: 3
+@timeout: 60s
+@+agent: SecurityBot
+@+task: PR-942
+@+env: production
+
+~ Security review flow for incoming pull requests
+
+# Role
+You are $agent performing a security audit on $task in $env.
+
+# Rules
+- Score risk 0.0-1.0. Above 0.7 blocks the PR automatically.
+- Cite exact line number for each finding.
+- Use [CRITICAL] / [HIGH] / [MEDIUM] / [LOW] labels inline.
+
+# Steps
+1. Read USER_CODE block below
+2. > CALL analyze_risk(pr: $task, code: $input, env: $env)
+3. > ASSERT $result.score != null
+4. > YIELD $result.report
+
+=== USER_CODE [python]
+def get_user(id):
+    query = f"SELECT * FROM users WHERE id={id}"
+    return db.execute(query)
+=== /USER_CODE
+
+=== EXAMPLES
+=== EXAMPLE_1
+user: Is f"SELECT * WHERE id={id}" safe?
+assistant: No. [CRITICAL] Line 2 — SQL injection. Use: db.execute("SELECT * WHERE id=?", (id,))
+=== /EXAMPLE_1
+=== /EXAMPLES
+
+:analyze_risk
+  desc: Score a PR for security vulnerabilities
+  pr!: str
+  code!: str
+  env!: [prod|staging|dev]
+  ruleset?: [owasp|cwe|custom] = owasp
+  depth?: int = 3
+  -> score: float, findings: list<Finding>, summary: str
+
+=== TYPE_DEF
+  Finding:
+    line!: int
+    severity!: [low|medium|high|critical]
+    message!: str
+    fix?: str
+=== /TYPE_DEF
+=== /FULL_EXAMPLE

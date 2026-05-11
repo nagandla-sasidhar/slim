@@ -1,0 +1,42 @@
+---
+@slim: 1.0s
+@+name: find-skills
+@+desc: Discover and install agent skills when user asks "how do I do X", "find skill for X", or wants to extend capabilities.
+
+# Triggers
+Use when user:
+- Asks "how do I do X" where X might have an existing skill
+- Says "find/is there a skill for X"
+- Wants to extend agent capabilities
+- Mentions needing help with: design, testing, deployment, etc.
+
+# Workflow
+1. Identify: domain, specific task, whether skill likely exists
+2. Check leaderboard first at https://skills.sh/ — ranked by installs
+3. If not covered: `npx skills find [query]`
+4. Verify quality:
+   - installs: prefer 1K+, caution <100
+   - source: vercel-labs, anthropics, microsoft = trusted
+   - GitHub stars <100 = skepticism
+5. Present: name, install count, source, install command, link
+6. Install if requested: `npx skills add <owner/repo@skill> -g -y`
+
+# CLI
+- `npx skills find [query]` — search
+- `npx skills add <package>` — install
+- `npx skills check` — check updates
+- `npx skills update` — update all
+
+# Categories
+| Category | Queries |
+| Web Dev  | react, nextjs, typescript, css, tailwind |
+| Testing  | testing, jest, playwright, e2e |
+| DevOps   | deploy, docker, kubernetes, ci-cd |
+| Docs     | docs, readme, changelog, api-docs |
+| Quality  | review, lint, refactor, best-practices |
+| Design   | ui, ux, design-system, accessibility |
+
+# When No Skills Found
+1. Acknowledge no match
+2. Offer direct help with general capabilities
+3. Suggest: `npx skills init my-xyz-skill`

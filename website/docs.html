@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLIM Documentation — Structured LLM Instruction Markup</title>
+  <meta name="description" content="Complete documentation for SLIM v1.0: syntax reference, parser API, plugin installation, BNF grammar, and migration guide." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src https://fonts.gstatic.com;
+                 img-src 'self' data:; connect-src 'none';
+                 object-src 'none'; base-uri 'self';" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <style>
+    /* ── Docs layout ─────────────────────────────────────────────── */
+    .docs-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 60px);
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      gap: 0;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    .docs-sidebar {
+      position: sticky;
+      top: 60px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      padding: 32px 0 32px 0;
+      border-right: 1px solid var(--border);
+      scrollbar-width: thin;
+      scrollbar-color: var(--navy-4) transparent;
+    }
+    .docs-sidebar::-webkit-scrollbar { width: 4px; }
+    .docs-sidebar::-webkit-scrollbar-track { background: transparent; }
+    .docs-sidebar::-webkit-scrollbar-thumb { background: var(--navy-4); border-radius: 2px; }
+
+    .sidebar-group { margin-bottom: 24px; }
+    .sidebar-group-title {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text-4); padding: 0 20px; margin-bottom: 6px;
+    }
+    .sidebar-link {
+      display: block; padding: 5px 20px; font-size: 0.84rem;
+      color: var(--text-3); border-radius: 0; transition: all 0.15s;
+      border-left: 2px solid transparent;
+    }
+    .sidebar-link:hover { color: var(--text); background: var(--card); }
+    .sidebar-link.active {
+      color: var(--teal-light); border-left-color: var(--teal-light);
+      background: rgba(27,127,121,0.08);
+    }
+    .sidebar-link.sub { padding-left: 32px; font-size: 0.8rem; }
+
+    /* ── Main content ────────────────────────────────────────────── */
+    .docs-content {
+      padding: 48px 0 96px 48px;
+      max-width: 800px;
+    }
+
+    /* ── Section headings ────────────────────────────────────────── */
+    .docs-section { margin-bottom: 64px; scroll-margin-top: 80px; }
+    .docs-section h2 {
+      font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px;
+      margin-bottom: 8px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .docs-section h2 .tag {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--teal-light);
+      vertical-align: middle; margin-right: 10px;
+      background: rgba(27,127,121,0.12); border: 1px solid rgba(27,127,121,0.2);
+      padding: 2px 7px; border-radius: 4px;
+    }
+    .docs-section h3 {
+      font-size: 1.05rem; font-weight: 700; margin: 28px 0 10px;
+      color: var(--text);
+    }
+    .docs-section p { color: var(--text-2); line-height: 1.75; margin-bottom: 14px; font-size: 0.95rem; }
+    .docs-section ul, .docs-section ol {
+      color: var(--text-2); font-size: 0.93rem; line-height: 1.75;
+      padding-left: 20px; margin-bottom: 14px;
+    }
+    .docs-section li { margin-bottom: 4px; }
+    .docs-section code {
+      background: var(--navy-3); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 6px; font-size: 0.82rem; color: var(--teal-light);
+    }
+    .docs-section a { color: var(--teal-light); }
+    .docs-section a:hover { color: var(--accent-2); }
+
+    /* ── Doc code block ──────────────────────────────────────────── */
+    .doc-code {
+      background: var(--navy-2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin: 16px 0;
+    }
+    .doc-code-hdr {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; background: var(--navy-3); border-bottom: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--text-3);
+    }
+    .doc-code pre {
+      padding: 18px 20px; overflow-x: auto;
+      font-size: 0.8rem; line-height: 1.7; white-space: pre; color: var(--text-2);
+    }
+    .doc-code pre.no-hdr { border-top: none; }
+
+    /* ── Reference table ─────────────────────────────────────────── */
+    .ref-table {
+      width: 100%; border-collapse: collapse; font-size: 0.85rem;
+      margin: 16px 0 24px; background: var(--navy-2);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .ref-table th {
+      text-align: left; padding: 9px 14px; font-size: 0.73rem; font-weight: 600;
+      color: var(--text-3); background: var(--navy-3);
+      border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .ref-table td {
+      padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text-2); vertical-align: top; line-height: 1.55;
+    }
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table tr:hover td { background: var(--card); }
+    .ref-table code { background: var(--navy-3); padding: 1px 5px; border-radius: 3px; color: var(--teal-light); font-size: 0.78rem; }
+    .ref-table .mono { font-family: var(--font-mono); font-size: 0.78rem; color: var(--teal-light); font-weight: 700; }
+
+    /* ── Callout boxes ───────────────────────────────────────────── */
+    .callout {
+      border-radius: var(--radius-sm); padding: 14px 18px;
+      margin: 16px 0; font-size: 0.88rem; line-height: 1.65;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .callout-body { color: var(--text-2); }
+    .callout-body strong { color: var(--text); display: block; margin-bottom: 4px; }
+    .callout.tip  { background: rgba(27,127,121,0.1); border: 1px solid rgba(27,127,121,0.25); }
+    .callout.warn { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.2); }
+    .callout.note { background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
+
+    /* ── Install cards ───────────────────────────────────────────── */
+    .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 20px 0; }
+    .install-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      transition: all 0.2s;
+    }
+    .install-card:hover { border-color: var(--border-2); background: var(--card-hover); }
+    .install-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; }
+    .install-card p { font-size: 0.82rem; color: var(--text-3); line-height: 1.55; margin: 0; }
+    .install-card .install-icon { font-size: 1.6rem; margin-bottom: 10px; }
+
+    /* ── Docs header ─────────────────────────────────────────────── */
+    .docs-hero {
+      padding: 40px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+    }
+    .docs-hero h1 {
+      font-size: 2rem; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 8px;
+    }
+    .docs-hero p { color: var(--text-2); font-size: 1rem; margin: 0; }
+    .docs-hero .version-badge {
+      display: inline-flex; align-items: center;
+      background: rgba(27,127,121,0.12); border: 1px solid rgba(27,127,121,0.3);
+      color: var(--teal-light); padding: 3px 10px; border-radius: 100px;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Stepper ─────────────────────────────────────────────────── */
+    .steps { list-style: none; padding: 0; counter-reset: steps; margin: 16px 0 24px; }
+    .steps li {
+      counter-increment: steps; display: flex; gap: 14px;
+      margin-bottom: 14px; font-size: 0.9rem; color: var(--text-2); line-height: 1.65;
+    }
+    .steps li::before {
+      content: counter(steps);
+      background: var(--teal); color: white; border-radius: 50%;
+      width: 22px; height: 22px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 800; margin-top: 2px;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .docs-layout { grid-template-columns: 1fr; padding: 0; }
+      .docs-sidebar { display: none; }
+      .docs-content { padding: 32px 20px 64px; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">SLIM <span>v1.0</span></a>
+    <div class="nav-links">
+      <a href="index.html#features"   class="nav-link">Features</a>
+      <a href="index.html#benchmark"  class="nav-link">Benchmarks</a>
+      <a href="docs.html"             class="nav-link" style="color:var(--teal-light)">Docs</a>
+      <a href="playground.html" class="nav-cta">Try Converter →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Docs Layout ──────────────────────────────────────────────── -->
+<div class="docs-layout">
+
+  <!-- Left Sidebar -->
+  <aside class="docs-sidebar" id="sidebar">
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Introduction</div>
+      <a href="#getting-started" class="sidebar-link active">Getting Started</a>
+      <a href="#overview"        class="sidebar-link">Overview</a>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Syntax</div>
+      <a href="#header-zone"     class="sidebar-link">Header Zone</a>
+      <a href="#body-zone"       class="sidebar-link">Body Zone</a>
+      <a href="#block-zone"      class="sidebar-link">Block Zone</a>
+      <a href="#directives"      class="sidebar-link">Directives</a>
+      <a href="#variables"       class="sidebar-link">Variables</a>
+      <a href="#schemas"         class="sidebar-link">Schema Definitions</a>
+      <a href="#types"           class="sidebar-link">Type System</a>
+      <a href="#comments"        class="sidebar-link">Comments</a>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Security</div>
+      <a href="#security"        class="sidebar-link">Security Model</a>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Parser API</div>
+      <a href="#parser-python"   class="sidebar-link">Python Parser</a>
+      <a href="#parser-js"       class="sidebar-link">JavaScript Library</a>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Editor Plugins</div>
+      <a href="#plugin-vscode"   class="sidebar-link">VS Code</a>
+      <a href="#plugin-intellij" class="sidebar-link">IntelliJ IDEA</a>
+      <a href="#plugin-npp"      class="sidebar-link">Notepad++</a>
+    </div>
+    <div class="sidebar-group">
+      <div class="sidebar-group-title">Reference</div>
+      <a href="#bnf"             class="sidebar-link">BNF Grammar</a>
+      <a href="#reserved-keys"   class="sidebar-link">Reserved Keys</a>
+      <a href="#migration"       class="sidebar-link">Migration Guide</a>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="docs-content">
+
+    <!-- Docs Hero -->
+    <div class="docs-hero">
+      <div class="version-badge">v1.0 · Stable</div>
+      <h1>SLIM Documentation</h1>
+      <p>Complete reference for Structured LLM Instruction Markup — syntax, parser API, plugins, and migration from Markdown.</p>
+    </div>
+
+    <!-- ── Getting Started ─────────────────────────────────────── -->
+    <section class="docs-section" id="getting-started">
+      <h2><span class="tag">Start</span> Getting Started</h2>
+      <p>SLIM is a plain-text format for AI prompts, agent configs, and tool schemas. It replaces Markdown in AI pipelines, stripping orchestrator metadata before the LLM call and saving an average of 43% of tokens.</p>
+
+      <h3>Install the Python parser</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">terminal</div>
+        <pre>pip install slim-parser</pre>
+      </div>
+
+      <h3>Write your first .slm file</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">hello.slm</div>
+        <pre><span class="sl-key">@slim</span>: 1.0
+<span class="sl-key">@model</span>: claude-opus-4-7
+<span class="sl-llm-key">@+agent</span>: Greeter
+<span class="sl-llm-key">@+name</span>: Alice
+
+<span class="sl-comment">~ This comment is stripped before the LLM call</span>
+<span class="sl-heading"># Role</span>
+You are <span class="sl-var">$agent</span>. Greet <span class="sl-var">$name</span> warmly.
+
+<span class="sl-heading"># Instructions</span>
+- Be concise and friendly
+- Respond in one sentence</pre>
+      </div>
+
+      <h3>Parse and use it</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">Python</div>
+        <pre>from slim_parser import SLIMParser
+
+doc = SLIMParser().parse_file("hello.slm")
+
+# Orchestrator reads metadata
+model   = doc.headers["model"]       # "claude-opus-4-7"
+agent   = doc.headers["agent"]       # "Greeter"
+
+# Send only the LLM text (stripped)
+llm_text = doc.stripped_text
+# → "@+agent: Greeter\n@+name: Alice\n# Role\nYou are Greeter..."
+
+# Call the LLM
+response = client.messages.create(
+    model=model,
+    messages=[{"role": "user", "content": llm_text}]
+)</pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Key concept: two audiences</strong>
+          <code>@key</code> headers are for the <em>orchestrator</em> — they are stripped before the LLM call.
+          <code>@+key</code> headers are for the <em>LLM</em> — they appear at the top of the prompt text.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Overview ───────────────────────────────────────────── -->
+    <section class="docs-section" id="overview">
+      <h2><span class="tag">Intro</span> Overview</h2>
+      <p>Every SLIM file is divided into three strictly ordered zones:</p>
+
+      <table class="ref-table">
+        <thead><tr><th>Zone</th><th>Content</th><th>Who reads it?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Header Zone</strong></td>
+            <td>Lines starting with <code>@key</code> or <code>@+key</code></td>
+            <td>Orchestrator (<code>@key</code>) and LLM (<code>@+key</code>)</td>
+          </tr>
+          <tr>
+            <td><strong>Body Zone</strong></td>
+            <td>Prose, headings, bullets, directives, tables</td>
+            <td>LLM (primary) — variables interpolated first</td>
+          </tr>
+          <tr>
+            <td><strong>Block Zone</strong></td>
+            <td><code>=== NAME … === /NAME</code> regions in the body</td>
+            <td>LLM sees content; parser extracts named blocks</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Files use the <code>.slm</code> extension with MIME type <code>text/slim</code> and UTF-8 encoding.</p>
+
+      <div class="callout note">
+        <div class="callout-icon">📄</div>
+        <div class="callout-body">
+          <strong>File metadata</strong>
+          Extension: <code>.slm</code> · MIME: <code>text/slim</code> · Encoding: UTF-8 · Line endings: LF preferred, CRLF tolerated
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Header Zone ────────────────────────────────────────── -->
+    <section class="docs-section" id="header-zone">
+      <h2><span class="tag">Syntax</span> Header Zone</h2>
+      <p>The header zone starts at line 1 and ends at the first <code>#</code> heading or non-blank, non-<code>@</code> line.</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">Syntax</div>
+        <pre><span class="sl-key">@key</span>: value          <span class="sl-comment">~ orchestrator-only, stripped before LLM</span>
+<span class="sl-llm-key">@+key</span>: value         <span class="sl-comment">~ LLM-visible, also available as $key variable</span>
+<span class="sl-key">@include</span>: ./base.slm <span class="sl-comment">~ import another .slm file</span></pre>
+      </div>
+
+      <h3>Strip semantics</h3>
+      <table class="ref-table">
+        <thead><tr><th>Prefix</th><th>LLM sees?</th><th>Variable interpolated?</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">@key</td><td><span class="badge badge-strip">stripped</span></td><td>Yes — <code>$key</code></td><td>Model, retry, timeout, secrets</td></tr>
+          <tr><td class="mono">@+key</td><td><span class="badge badge-visible">visible</span></td><td>Yes — <code>$key</code></td><td>Agent name, task ID, context</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Type coercion</h3>
+      <p>Header values are automatically typed — no quotes required for most types.</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">Examples</div>
+        <pre><span class="sl-key">@retry</span>: 3            <span class="sl-comment">~ → int</span>
+<span class="sl-key">@threshold</span>: 0.7      <span class="sl-comment">~ → float</span>
+<span class="sl-key">@async</span>: true          <span class="sl-comment">~ → bool</span>
+<span class="sl-key">@context</span>: null        <span class="sl-comment">~ → None/null</span>
+<span class="sl-key">@stack</span>: python, js    <span class="sl-comment">~ → list["python", "js"]</span>
+<span class="sl-key">@id</span>: "42"             <span class="sl-comment">~ → str (quoted prevents int coercion)</span>
+<span class="sl-key">@desc</span>: First line
+  second line           <span class="sl-comment">~ → "First line second line" (continuation)</span></pre>
+      </div>
+
+      <h3>@include</h3>
+      <p>Import another <code>.slm</code> file. Resolved before any other processing. Included <code>@+</code> headers merge into the current LLM context; included <code>@</code> headers are defaults the current file can override.</p>
+      <div class="doc-code">
+        <pre><span class="sl-key">@include</span>: ./base/agent.slm
+<span class="sl-key">@include</span>: ./tools/mcp_tools.slm</pre>
+      </div>
+      <ul>
+        <li>Max include depth: 5 levels</li>
+        <li>Circular includes: parse error</li>
+        <li><code>@+include</code> is invalid — includes are always orchestrator-only</li>
+      </ul>
+
+      <h3>Multi-document files</h3>
+      <p>Use <code>---</code> on its own line to separate independent documents in one file. Each is parsed with its own header zone.</p>
+      <div class="doc-code">
+        <pre><span class="sl-key">@slim</span>: 1.0
+<span class="sl-llm-key">@+agent</span>: Planner
+<span class="sl-heading"># Role</span>
+You plan tasks.
+---
+<span class="sl-key">@slim</span>: 1.0
+<span class="sl-llm-key">@+agent</span>: Executor
+<span class="sl-heading"># Role</span>
+You execute tasks.</pre>
+      </div>
+    </section>
+
+    <!-- ── Body Zone ──────────────────────────────────────────── -->
+    <section class="docs-section" id="body-zone">
+      <h2><span class="tag">Syntax</span> Body Zone</h2>
+      <p>Everything after the header zone. This is the main content the LLM reads. Variables are interpolated before delivery.</p>
+
+      <table class="ref-table">
+        <thead><tr><th>Sigil</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="mono"># Heading</td><td>H1–H3 section headings (<code>#</code>, <code>##</code>, <code>###</code>)</td></tr>
+          <tr><td class="mono">- item</td><td>Bullet point</td></tr>
+          <tr><td class="mono">1. step</td><td>Ordered step</td></tr>
+          <tr><td class="mono">| col |</td><td>Table row — no separator row needed (unlike Markdown)</td></tr>
+          <tr><td class="mono">&gt; KEYWORD</td><td>Directive — see <a href="#directives">Directives</a></td></tr>
+          <tr><td class="mono">$key</td><td>Variable reference — see <a href="#variables">Variables</a></td></tr>
+          <tr><td class="mono">~ text</td><td>Comment — always stripped before LLM call</td></tr>
+          <tr><td class="mono">\X</td><td>Literal escape — <code>\@</code>, <code>\$</code>, <code>\===</code> etc.</td></tr>
+          <tr><td class="mono">`code`</td><td>Inline code (passed through verbatim)</td></tr>
+          <tr><td class="mono">*bold* / _italic_</td><td>Inline formatting (passed through verbatim)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Tables</h3>
+      <p>Pipe-delimited rows. No <code>|---|</code> separator row — one of SLIM's token savings over Markdown.</p>
+      <div class="doc-code">
+        <pre>| Format | Tokens | Readable |
+| JSON   | 340    | Medium   |
+| SLIM   | 175    | High     |</pre>
+      </div>
+    </section>
+
+    <!-- ── Block Zone ─────────────────────────────────────────── -->
+    <section class="docs-section" id="block-zone">
+      <h2><span class="tag">Syntax</span> Block Zone</h2>
+      <p>Named, typed regions that can appear anywhere in the body zone. Block boundaries are injection-safe — user content can't escape them.</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">Syntax</div>
+        <pre><span class="sl-block">=== BLOCK_NAME</span>
+content
+<span class="sl-block">=== /BLOCK_NAME</span>
+
+<span class="sl-block">=== BLOCK_NAME [type]</span>
+typed content
+<span class="sl-block">=== /BLOCK_NAME</span></pre>
+      </div>
+
+      <h3>Rules</h3>
+      <ul>
+        <li>Block names: <code>SCREAMING_SNAKE_CASE</code>, ASCII only, <code>[A-Z][A-Z0-9_]*</code></li>
+        <li>Closing tag must mirror the opening name exactly</li>
+        <li>Type tag is optional: <code>[python]</code>, <code>[json]</code>, <code>[sql]</code>, <code>[bash]</code>, <code>[raw]</code>, <code>[csv]</code>, <code>[ascii]</code>, <code>[base64:png]</code></li>
+        <li>Nesting: single level only (one block inside another is valid; deeper is a parse error)</li>
+        <li>Content is captured verbatim — whitespace and blank lines preserved</li>
+        <li>Escape <code>===</code> inside a block: prefix with <code>\</code> → <code>\===</code> becomes literal</li>
+      </ul>
+
+      <h3>Example with nested blocks</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">few-shot.slm</div>
+        <pre><span class="sl-block">=== EXAMPLES</span>
+
+<span class="sl-block">=== EXAMPLE_1</span>
+user: Is this SQL safe?
+assistant: No — SQL injection on line 2.
+<span class="sl-block">=== /EXAMPLE_1</span>
+
+<span class="sl-block">=== EXAMPLE_2</span>
+user: How do I fix it?
+assistant: Use parameterized queries.
+<span class="sl-block">=== /EXAMPLE_2</span>
+
+<span class="sl-block">=== /EXAMPLES</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <strong>Injection safety</strong>
+          Always call <code>sanitize_user_content()</code> before embedding user-provided text in a block.
+          An unescaped <code>=== /BLOCK_NAME</code> in user input would break out of the block boundary.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Directives ─────────────────────────────────────────── -->
+    <section class="docs-section" id="directives">
+      <h2><span class="tag">Syntax</span> Directives</h2>
+      <p>Lines beginning with <code>&gt;</code> followed by a reserved ALL_CAPS keyword. Used to express agent workflow steps.</p>
+
+      <div class="doc-code">
+        <pre><span class="sl-directive">&gt; CALL tool_name(param: value, param2: $var)</span>
+<span class="sl-directive">&gt; ASSERT $result.status == complete</span>
+<span class="sl-directive">&gt; YIELD $result.report</span>
+<span class="sl-directive">&gt; EMIT event_name(payload: $data)</span>
+<span class="sl-directive">&gt; LOG "Step completed"</span>
+<span class="sl-directive">&gt; ABORT "Reason for stopping"</span>
+<span class="sl-directive">&gt; WAIT 5s</span>
+<span class="sl-directive">&gt; RETRY 3</span></pre>
+      </div>
+
+      <table class="ref-table">
+        <thead><tr><th>Keyword</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">CALL</td><td>Invoke a tool or function (see Schema Definitions)</td></tr>
+          <tr><td class="mono">ASSERT</td><td>Assert a condition — pipeline fails if false</td></tr>
+          <tr><td class="mono">YIELD</td><td>Return a value from this step to the caller</td></tr>
+          <tr><td class="mono">EMIT</td><td>Emit a named event to the orchestrator event bus</td></tr>
+          <tr><td class="mono">LOG</td><td>Log a message (orchestrator handles, never sent to LLM)</td></tr>
+          <tr><td class="mono">ABORT</td><td>Halt execution with a reason string</td></tr>
+          <tr><td class="mono">WAIT</td><td>Pause for a duration (<code>5s</code>, <code>2m</code>)</td></tr>
+          <tr><td class="mono">RETRY</td><td>Retry the current step N times</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout note">
+        <div class="callout-icon">📌</div>
+        <div class="callout-body">
+          <strong>Not all &gt; are directives</strong>
+          A <code>&gt;</code> followed by anything other than a reserved keyword is treated as literal prose.
+          For example: <code>&gt; 90% of bugs are caught early</code> — not a directive.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Variables ──────────────────────────────────────────── -->
+    <section class="docs-section" id="variables">
+      <h2><span class="tag">Syntax</span> Variables</h2>
+      <p><code>$key</code> references are resolved by the parser before the body text is sent to the LLM. Values come from <code>@key</code> or <code>@+key</code> headers.</p>
+
+      <div class="doc-code">
+        <pre><span class="sl-key">@slim</span>: 1.0
+<span class="sl-llm-key">@+agent</span>: SecurityBot
+<span class="sl-llm-key">@+task</span>: PR-942
+
+You are <span class="sl-var">$agent</span> reviewing <span class="sl-var">$task</span>.
+<span class="sl-comment">~ → "You are SecurityBot reviewing PR-942."</span></pre>
+      </div>
+
+      <table class="ref-table">
+        <thead><tr><th>Syntax</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">$key</td><td>Simple reference — resolved at parse time from headers</td></tr>
+          <tr><td class="mono">$result.field</td><td>Runtime dotpath — resolved by orchestrator during execution</td></tr>
+          <tr><td class="mono">$list[0]</td><td>Indexed access — runtime</td></tr>
+          <tr><td class="mono">\$amount</td><td>Literal dollar sign — escape to prevent interpolation</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout note">
+        <div class="callout-icon">📌</div>
+        <div class="callout-body">
+          Variable values containing newlines: only the first line is used.
+          This prevents multi-line injection through variable values.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Schema Definitions ─────────────────────────────────── -->
+    <section class="docs-section" id="schemas">
+      <h2><span class="tag">Syntax</span> Schema Definitions</h2>
+      <p>First-class syntax for AI function call schemas. Define tools the agent can call using the <code>:tool_name</code> prefix.</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">Syntax</div>
+        <pre>:tool_name
+  desc: Human-readable description of what this tool does
+  param1!: str           <span class="sl-comment">~ required parameter</span>
+  param2?: int = 10      <span class="sl-comment">~ optional with default</span>
+  param3?: [a|b|c] = a  <span class="sl-comment">~ enum with default</span>
+  -> result: json        <span class="sl-comment">~ return type</span></pre>
+      </div>
+
+      <h3>Property suffixes</h3>
+      <table class="ref-table">
+        <thead><tr><th>Suffix</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">!</td><td>Required — parse error if missing at call time</td></tr>
+          <tr><td class="mono">?</td><td>Optional</td></tr>
+          <tr><td class="mono">= value</td><td>Default value (implies optional)</td></tr>
+          <tr><td class="mono">-&gt;</td><td>Return type declaration</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Complete example</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">tools.slm</div>
+        <pre><span class="sl-key">@slim</span>: 1.0s
+
+:search_web
+  desc: Search the internet for recent information
+  query!: str
+  max_results?: int = 10
+  safe_search?: bool = true
+  -> results: json
+
+:run_code
+  desc: Execute code in a sandboxed environment
+  language!: [python|javascript|bash]
+  code!: str
+  timeout?: int = 30
+  -> output: str
+  -> exit_code: int</pre>
+      </div>
+
+      <h3>Custom type definitions</h3>
+      <div class="doc-code">
+        <pre><span class="sl-block">=== TYPE_DEF</span>
+  Finding:
+    line!: int
+    severity!: [low|medium|high|critical]
+    message!: str
+    fix?: str
+<span class="sl-block">=== /TYPE_DEF</span>
+
+:analyze_code
+  desc: Run static analysis on a code snippet
+  code!: str
+  language?: [python|js|java|go|rust] = python
+  -> score: float, findings: list&lt;Finding&gt;</pre>
+      </div>
+
+      <div class="callout note">
+        <div class="callout-icon">📌</div>
+        <div class="callout-body">
+          Schema files use <code>@slim: 1.0s</code> (note the <code>s</code> suffix) to indicate schema extensions are active.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Type System ────────────────────────────────────────── -->
+    <section class="docs-section" id="types">
+      <h2><span class="tag">Reference</span> Type System</h2>
+
+      <h3>Primitive types</h3>
+      <table class="ref-table">
+        <thead><tr><th>Type</th><th>Examples</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">str</td><td><code>hello</code>, <code>"hello"</code></td><td>Default for unrecognized values. Quoted forces string.</td></tr>
+          <tr><td class="mono">int</td><td><code>3</code>, <code>-10</code></td><td>Auto-coerced in headers</td></tr>
+          <tr><td class="mono">float</td><td><code>0.7</code>, <code>3.14</code></td><td>Requires decimal point</td></tr>
+          <tr><td class="mono">bool</td><td><code>true</code>, <code>false</code></td><td>Case-sensitive lowercase</td></tr>
+          <tr><td class="mono">null</td><td><code>null</code>, <code>none</code></td><td>Both accepted</td></tr>
+        </tbody>
+      </table>
+
+      <h3>First-class types (schema params)</h3>
+      <table class="ref-table">
+        <thead><tr><th>Type</th><th>Description</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">datetime</td><td>ISO 8601</td><td><code>2026-05-10T14:30:00Z</code></td></tr>
+          <tr><td class="mono">url</td><td>Valid URL</td><td><code>https://example.com</code></td></tr>
+          <tr><td class="mono">uuid</td><td>UUID v4</td><td><code>550e8400-e29b-41d4-a716</code></td></tr>
+          <tr><td class="mono">json</td><td>Arbitrary JSON</td><td>Any valid JSON object</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Collection types</h3>
+      <table class="ref-table">
+        <thead><tr><th>Type</th><th>Syntax</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Enum</td><td><code>[a|b|c]</code></td><td><code>[prod|staging|dev]</code></td></tr>
+          <tr><td class="mono">List</td><td><code>list&lt;T&gt;</code></td><td><code>list&lt;str&gt;</code>, <code>list&lt;Finding&gt;</code></td></tr>
+          <tr><td class="mono">Dict</td><td><code>dict&lt;K,V&gt;</code></td><td><code>dict&lt;str,int&gt;</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── Comments ───────────────────────────────────────────── -->
+    <section class="docs-section" id="comments">
+      <h2><span class="tag">Syntax</span> Comments</h2>
+      <p>Lines starting with <code>~</code> (tilde) are stripped by all SLIM parsers. They never reach the LLM. Use them for author notes, TODOs, disabled content, or debugging hints.</p>
+
+      <div class="doc-code">
+        <pre><span class="sl-comment">~ Author: Jane Doe</span>
+<span class="sl-comment">~ TODO: add edge case for empty input</span>
+<span class="sl-comment">~ @+agent: DisabledAgent  ← never parsed, entire line stripped</span></pre>
+      </div>
+
+      <p>Comments are valid anywhere in the file — header zone, body zone, inside blocks.</p>
+    </section>
+
+    <!-- ── Security ───────────────────────────────────────────── -->
+    <section class="docs-section" id="security">
+      <h2><span class="tag">Security</span> Security Model</h2>
+
+      <h3>Zone ordering enforcement</h3>
+      <p>The header zone <strong>must</strong> precede the body zone. Any <code>@key</code> found after the first <code>#</code> heading or non-blank non-<code>@</code> line is treated as literal body text, not a header. This prevents header injection — user content placed before headers cannot override <code>@model</code>, <code>@include</code>, or other orchestrator fields.</p>
+
+      <h3>Block boundary injection</h3>
+      <p>All parsers validate that block content does not contain unescaped <code>===</code> lines. An unescaped <code>===</code> inside a block is a parse error in strict mode, a warning in lenient mode.</p>
+
+      <h3>sanitize_user_content()</h3>
+      <p>Always call this before embedding user-provided text in a SLIM document. It escapes all SLIM sigils:</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">Python</div>
+        <pre>from slim_parser import sanitize_user_content
+
+user_input = "@model: evil-model\n> ABORT everything"
+safe = sanitize_user_content(user_input)
+# → "\@model: evil-model\n\> ABORT everything"
+
+doc_text = f"""
+@slim: 1.0
+@+task: review
+
+=== USER_CONTENT
+{safe}
+=== /USER_CONTENT
+"""</pre>
+      </div>
+
+      <p>Characters escaped: <code>@</code>, <code>$</code>, <code>&gt;</code>, <code>===</code>, <code>~</code> → <code>\@</code>, <code>\$</code>, <code>\&gt;</code>, <code>\===</code>, <code>\~</code></p>
+
+      <h3>@include path traversal</h3>
+      <ul>
+        <li>Paths resolved relative to the including file's directory</li>
+        <li>Absolute paths: allowed but linters should flag them</li>
+        <li>Network URLs: disabled by default; parser-implementation-dependent</li>
+        <li>Circular includes: parse error</li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <strong>Variable value injection</strong>
+          Variable values containing newline characters: only the first line is used.
+          Multi-line values cannot inject new headers or directives.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Python Parser API ──────────────────────────────────── -->
+    <section class="docs-section" id="parser-python">
+      <h2><span class="tag">API</span> Python Parser</h2>
+
+      <h3>Parsing a file</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">Python</div>
+        <pre>from slim_parser import SLIMParser, ParseMode
+
+parser = SLIMParser()
+
+# From file
+doc = parser.parse_file("agent.slm")
+
+# From string
+doc = parser.parse(slm_text)
+
+# Strict mode (raises on errors)
+doc = parser.parse(slm_text, mode=ParseMode.STRICT)
+
+# Lenient mode (collects warnings, returns partial)
+doc = parser.parse(slm_text, mode=ParseMode.LENIENT)</pre>
+      </div>
+
+      <h3>SLIMDocument properties</h3>
+      <table class="ref-table">
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">version</td><td><code>str</code></td><td>Value of <code>@slim</code> header</td></tr>
+          <tr><td class="mono">headers</td><td><code>dict[str, Any]</code></td><td>All <code>@key</code> headers (stripped, typed)</td></tr>
+          <tr><td class="mono">llm_headers</td><td><code>dict[str, Any]</code></td><td>All <code>@+key</code> headers (LLM-visible, typed)</td></tr>
+          <tr><td class="mono">sections</td><td><code>list[Section]</code></td><td><code>#</code> headings with their content</td></tr>
+          <tr><td class="mono">blocks</td><td><code>dict[str, Block]</code></td><td>Named blocks by block name</td></tr>
+          <tr><td class="mono">schemas</td><td><code>dict[str, Schema]</code></td><td><code>:tool</code> definitions</td></tr>
+          <tr><td class="mono">directives</td><td><code>list[Directive]</code></td><td><code>&gt; KEYWORD</code> calls in order</td></tr>
+          <tr><td class="mono">body_text</td><td><code>str</code></td><td>Full body, variables interpolated</td></tr>
+          <tr><td class="mono">stripped_text</td><td><code>str</code></td><td><code>body_text</code> minus <code>~</code> comments — send this to LLM</td></tr>
+          <tr><td class="mono">token_estimate</td><td><code>int</code></td><td>Approximate token count (<code>len(stripped_text) / 4</code>)</td></tr>
+          <tr><td class="mono">warnings</td><td><code>list[str]</code></td><td>Parse warnings (lenient mode only)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Utility functions</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">Python</div>
+        <pre>from slim_parser import sanitize_user_content, SLIMParser
+
+# Sanitize user content before embedding
+safe = sanitize_user_content(user_text)
+
+# Format a .slm file (canonical form)
+parser = SLIMParser()
+canonical = parser.format(slm_text)
+
+# Validate without parsing full doc
+errors = parser.validate(slm_text)   # list[str], empty = valid</pre>
+      </div>
+    </section>
+
+    <!-- ── JavaScript API ─────────────────────────────────────── -->
+    <section class="docs-section" id="parser-js">
+      <h2><span class="tag">API</span> JavaScript Library</h2>
+      <p>The browser/Node.js library is available in <code>website/js/slim.js</code> and exposed as <code>window.SLIM</code>.</p>
+
+      <div class="doc-code">
+        <div class="doc-code-hdr">JavaScript</div>
+        <pre>// Parse a SLIM document
+const doc = SLIM.parse(slmText);
+// → { headers, llmHeaders, sections, blocks, schemas,
+//     directives, bodyText, strippedText, tokenEstimate }
+
+// Convert Markdown → SLIM
+const slm = SLIM.mdToSlm(markdownText);
+
+// Convert JSON → SLIM
+const slm = SLIM.jsonToSlm(jsonText);
+
+// Syntax-highlight SLIM text (returns HTML string)
+const html = SLIM.highlight(slmText);
+
+// Estimate token count
+const tokens = SLIM.estimateTokens(text);
+// → Math.round(text.length / 4)
+
+// Sanitize user content before embedding
+const safe = SLIM.sanitizeUserContent(userText);</pre>
+      </div>
+    </section>
+
+    <!-- ── VS Code Plugin ─────────────────────────────────────── -->
+    <section class="docs-section" id="plugin-vscode">
+      <h2><span class="tag">Plugins</span> VS Code Extension</h2>
+
+      <div class="install-grid">
+        <div class="install-card">
+          <div class="install-icon">🛒</div>
+          <h4>From Marketplace</h4>
+          <p>Search "SLIM Language" in the Extensions panel and click Install.</p>
+        </div>
+        <div class="install-card">
+          <div class="install-icon">📦</div>
+          <h4>From VSIX</h4>
+          <p>Build from source and install via Extensions → ··· → Install from VSIX.</p>
+        </div>
+      </div>
+
+      <h3>Build from source</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">terminal</div>
+        <pre>cd vscode-slim
+npm install
+npm run package          # produces slim-language-1.0.0.vsix
+code --install-extension slim-language-1.0.0.vsix</pre>
+      </div>
+
+      <h3>Features</h3>
+      <table class="ref-table">
+        <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Syntax highlighting</td><td>All SLIM constructs colored using TextMate grammar</td></tr>
+          <tr><td>Code folding</td><td><code>=== BLOCK … === /BLOCK</code> regions fold/collapse</td></tr>
+          <tr><td>Bracket matching</td><td><code>[type]</code> tags and pipe tables</td></tr>
+          <tr><td>Snippets</td><td>Common SLIM patterns: headers, blocks, schemas, directives</td></tr>
+          <tr><td>Line comments</td><td><code>Ctrl+/</code> inserts <code>~ </code></td></tr>
+          <tr><td>Auto-indent</td><td>Schema property indentation</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── IntelliJ Plugin ────────────────────────────────────── -->
+    <section class="docs-section" id="plugin-intellij">
+      <h2><span class="tag">Plugins</span> IntelliJ IDEA Plugin</h2>
+
+      <div class="install-grid">
+        <div class="install-card">
+          <div class="install-icon">🛒</div>
+          <h4>From JetBrains Marketplace</h4>
+          <p>Settings → Plugins → Marketplace → search "SLIM Language" → Install.</p>
+        </div>
+        <div class="install-card">
+          <div class="install-icon">📦</div>
+          <h4>From ZIP</h4>
+          <p>Settings → Plugins → ⚙ → Install Plugin from Disk → select ZIP file.</p>
+        </div>
+      </div>
+
+      <h3>Build from source</h3>
+      <div class="doc-code">
+        <div class="doc-code-hdr">terminal</div>
+        <pre>cd intellij-slim
+./gradlew buildPlugin      # → build/distributions/intellij-slim-1.0.0.zip
+./gradlew runIde           # opens sandbox IDE for testing</pre>
+      </div>
+
+      <h3>Requirements</h3>
+      <ul>
+        <li>IntelliJ IDEA 2023.2+ (Community or Ultimate)</li>
+        <li>Java 17+</li>
+        <li>Gradle 8.5+</li>
+      </ul>
+
+      <h3>Features</h3>
+      <table class="ref-table">
+        <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Syntax highlighting</td><td>All SLIM constructs colored, configurable per theme</td></tr>
+          <tr><td>Code folding</td><td><code>=== BLOCK … === /BLOCK</code> regions collapse</td></tr>
+          <tr><td>Color customization</td><td>Settings → Editor → Color Scheme → SLIM</td></tr>
+          <tr><td>Line commenting</td><td><code>Ctrl+/</code> inserts <code>~ </code></td></tr>
+          <tr><td>File type icon</td><td><code>.slm</code> files shown with SLIM icon</td></tr>
+          <tr><td>Bracket matching</td><td><code>[type]</code> tags highlighted</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── Notepad++ ──────────────────────────────────────────── -->
+    <section class="docs-section" id="plugin-npp">
+      <h2><span class="tag">Plugins</span> Notepad++ UDL</h2>
+      <p>SLIM syntax highlighting for Notepad++ via a User Defined Language (UDL) XML file.</p>
+
+      <h3>Install</h3>
+      <ol class="steps">
+        <li>Open Notepad++</li>
+        <li>Go to <strong>Language</strong> → <strong>User Defined Language</strong> → <strong>Define your language…</strong></li>
+        <li>Click <strong>Import</strong> and select <code>notepadpp-slim/slim.udl.xml</code></li>
+        <li>Restart Notepad++</li>
+        <li>Open any <code>.slm</code> file — highlighting applies automatically</li>
+      </ol>
+
+      <h3>Features</h3>
+      <ul>
+        <li>Syntax highlighting for all SLIM constructs using dark theme colors</li>
+        <li><code>=== BLOCK … === /BLOCK</code> fold regions</li>
+        <li>Line commenting with <code>~ </code></li>
+        <li>Keyword highlighting: <code>CALL ASSERT YIELD EMIT LOG ABORT WAIT RETRY</code></li>
+      </ul>
+    </section>
+
+    <!-- ── BNF Grammar ────────────────────────────────────────── -->
+    <section class="docs-section" id="bnf">
+      <h2><span class="tag">Reference</span> BNF Grammar</h2>
+      <div class="doc-code">
+        <div class="doc-code-hdr">SLIM v1.0 BNF</div>
+        <pre>document     ::= header_zone body_zone
+header_zone  ::= (header_line | blank_line)*
+header_line  ::= at_key ": " value newline
+               | "@include" ": " path newline
+at_key       ::= ("@" | "@+") [a-z][a-z0-9_-]*
+
+body_zone    ::= (section | block | schema | directive
+               | table_row | bullet | ordered_step
+               | paragraph | comment | blank_line)*
+section      ::= "#"+ " " text newline
+block        ::= block_open block_content block_close
+block_open   ::= "===" " " BLOCK_NAME (" [" type "]")? newline
+block_close  ::= "===" " /" BLOCK_NAME newline
+block_content ::= (escaped_line | non_boundary_line)*
+escaped_line  ::= "\===" text newline
+schema       ::= ":" identifier newline property+
+property     ::= "  " identifier ("!" | "?")? ": " type
+                 (" = " value)? newline
+               | "  " "->" " " return_spec newline
+directive    ::= ">" " " KEYWORD (" " args)? newline
+table_row    ::= "|" (cell "|")+ newline
+bullet       ::= "-" " " text newline
+ordered_step ::= [0-9]+ "." " " text newline
+comment      ::= "~" text? newline
+variable_ref ::= "$" identifier ("." identifier | "[" integer "]")*
+
+BLOCK_NAME   ::= [A-Z][A-Z0-9_]*
+KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
+               | "LOG" | "ABORT" | "WAIT" | "RETRY"</pre>
+      </div>
+    </section>
+
+    <!-- ── Reserved Keys ─────────────────────────────────────── -->
+    <section class="docs-section" id="reserved-keys">
+      <h2><span class="tag">Reference</span> Reserved Header Keys</h2>
+      <table class="ref-table">
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">@slim</td><td><code>str</code></td><td>Format version. Required on first line. Current: <code>1.0</code></td></tr>
+          <tr><td class="mono">@model</td><td><code>str</code></td><td>Target LLM. Always stripped — never use <code>@+model</code>.</td></tr>
+          <tr><td class="mono">@agent</td><td><code>str</code></td><td>Agent identifier. Use <code>@+agent</code> to expose to LLM.</td></tr>
+          <tr><td class="mono">@mode</td><td><code>str</code></td><td>Execution mode (e.g. <code>strict</code>, <code>lenient</code>)</td></tr>
+          <tr><td class="mono">@retry</td><td><code>int</code></td><td>Retry limit for the orchestrator</td></tr>
+          <tr><td class="mono">@timeout</td><td><code>str</code></td><td>Timeout duration: <code>30s</code>, <code>5m</code></td></tr>
+          <tr><td class="mono">@tags</td><td><code>list&lt;str&gt;</code></td><td>Metadata tags for indexing and routing</td></tr>
+          <tr><td class="mono">@include</td><td><code>url/path</code></td><td>Import another <code>.slm</code> file</td></tr>
+          <tr><td class="mono">@version</td><td><code>str</code></td><td>Document version for your own versioning</td></tr>
+        </tbody>
+      </table>
+      <p>Custom keys are permitted. All reserved keys may be used with <code>@+</code> prefix to expose to LLM, <em>except</em> <code>@model</code> and <code>@include</code>.</p>
+    </section>
+
+    <!-- ── Migration Guide ────────────────────────────────────── -->
+    <section class="docs-section" id="migration">
+      <h2><span class="tag">Guide</span> Migration from Markdown</h2>
+
+      <h3>Structural equivalences</h3>
+      <table class="ref-table">
+        <thead><tr><th>Markdown</th><th>SLIM</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">--- frontmatter</td><td class="mono">@key: value</td><td>Use <code>@+key</code> to keep in LLM text</td></tr>
+          <tr><td class="mono"># Heading</td><td class="mono"># Heading</td><td>Identical</td></tr>
+          <tr><td class="mono">- bullet</td><td class="mono">- bullet</td><td>Identical</td></tr>
+          <tr><td class="mono">1. step</td><td class="mono">1. step</td><td>Identical</td></tr>
+          <tr><td class="mono">```lang code ```</td><td class="mono">=== BLOCK [lang] … === /BLOCK</td><td>Named + typed + injection-safe</td></tr>
+          <tr><td class="mono">&lt;!-- comment --&gt;</td><td class="mono">~ comment</td><td>Shorter, always stripped</td></tr>
+          <tr><td class="mono">| col | \n |---|</td><td class="mono">| col |</td><td>No separator row — saves ~6 tokens/table</td></tr>
+          <tr><td class="mono">*bold*</td><td class="mono">*bold*</td><td>Identical</td></tr>
+          <tr><td class="mono">`inline`</td><td class="mono">`inline`</td><td>Identical</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Step-by-step migration</h3>
+      <ol class="steps">
+        <li>Rename the file from <code>.md</code> to <code>.slm</code></li>
+        <li>Add <code>@slim: 1.0</code> as the very first line</li>
+        <li>Convert YAML frontmatter (<code>---</code> block) to <code>@key:</code> or <code>@+key:</code> headers and remove the <code>---</code> delimiters</li>
+        <li>Replace <code>``` lang ``` </code> fenced blocks with <code>=== BLOCK_NAME [lang] … === /BLOCK_NAME</code></li>
+        <li>Replace <code>&lt;!-- comments --&gt;</code> with <code>~</code> comment lines</li>
+        <li>Remove <code>| --- |</code> separator rows from all tables</li>
+        <li>Run <code>slim validate yourfile.slm</code> to verify</li>
+      </ol>
+
+      <h3>SLIM-only features (no Markdown equivalent)</h3>
+      <ul>
+        <li><code>@key</code> header stripping — tokens never reach LLM</li>
+        <li><code>$variable</code> interpolation resolved at parse time</li>
+        <li><code>&gt; DIRECTIVE</code> command syntax for workflow steps</li>
+        <li><code>:tool</code> schema definitions with typed parameters</li>
+        <li><code>=== BLOCK [type]</code> type tags and injection boundaries</li>
+        <li><code>~</code> comments — always stripped, zero LLM overhead</li>
+        <li><code>list&lt;T&gt;</code>, <code>dict&lt;K,V&gt;</code>, <code>[enum|values]</code> type system</li>
+        <li>Multi-document files with <code>---</code> separators</li>
+        <li><code>@include</code> imports</li>
+      </ul>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Use the Playground</strong>
+          The <a href="playground.html">SLIM Playground</a> has a built-in Markdown → SLIM converter.
+          Paste your <code>.md</code> file and download the converted <code>.slm</code> output.
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v1.0</span></div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="playground.html">Playground</a>
+        <a href="docs.html">Docs</a>
+      </div>
+      <div class="footer-copy">© 2026 Sasidhar Nagandla · Made with passion · MIT License · Zero runtime dependencies</div>
+    </div>
+  </div>
+</footer>
+
+<script src="js/docs.js"></script>
+
+</body>
+</html>

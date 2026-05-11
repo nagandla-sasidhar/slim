@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Plugin subdirs have their own repos
+vscode-slim/
+intellij-slim/
+notepadpp-slim/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF artifacts
+TAML_Format_Specification_Metrics_*.pdf
