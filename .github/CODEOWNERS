@@ -1,0 +1,15 @@
+# CODEOWNERS — every PR must be reviewed by at least one owner
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global: all files require review from the maintainer
+* @nagandla-sasidhar
+
+# Core converter files — changes here affect both Python and JS behaviour
+tests/md_to_slm.py        @nagandla-sasidhar
+website/js/slim.js        @nagandla-sasidhar
+
+# Spec file — any change must be reviewed carefully
+SLIM_SPEC_v1.0.slm        @nagandla-sasidhar
+
+# CI / GitHub config — prevent workflow tampering
+.github/                  @nagandla-sasidhar

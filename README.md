@@ -5,8 +5,8 @@
 
 **[Website](https://slimformat.org) · [Playground](https://slimformat.org/playground.html) · [Docs](https://slimformat.org/docs.html)**
 
-> **43.3% average token reduction** over Markdown, measured on 6 real-world AI agent files  
-> (cl100k_base tokenizer · benchmark included · 2026-05-10)
+> **24.5% average token savings** on YAML-frontmatter agent configs · **up to 34%** on richly-formatted files  
+> **4.4%** on plain-prose files · cl100k_base tokenizer · LLM-facing tokens only · 47-file corpus · 2026-05-12
 
 ---
 
@@ -30,22 +30,27 @@ SLIM keeps the structure, drops the ceremony:
 
 ## Token Savings (Benchmark)
 
-| Document | Markdown tokens | SLIM tokens | Savings |
-|----------|----------------|-------------|---------|
-| CLAUDE.md (project doc) | 748 | 423 | **43.4%** |
-| SKILL.md — find-skills | 312 | 178 | **42.9%** |
-| SKILL.md — pptx (complex) | 891 | 501 | **43.8%** |
-| SKILL.md — claude-setup-audit | 634 | 360 | **43.2%** |
-| Command — codemie-catchup | 287 | 164 | **42.9%** |
-| ROADMAP.md (business doc) | 1,203 | 681 | **43.4%** |
-| **Average** | | | **43.3%** |
+Savings are measured on **LLM-facing tokens only** — the orchestrator strips `@headers` before the LLM call, which is the real API cost metric.
+
+| File type | Markdown tokens | LLM-facing SLIM | Savings |
+|-----------|----------------|-----------------|---------|
+| Agent config (YAML + rich format) | 256 | 169 | **34.0%** |
+| README (YAML + tables + links) | 870 | 581 | **33.2%** |
+| Skill file (YAML + heavy format) | 249 | 170 | **31.7%** |
+| Prompt template (YAML + bullets) | 551 | 397 | **27.9%** |
+| Plain agent config (no YAML) | 613 | 573 | **6.5%** |
+| Pure prose instructions | 463 | 463 | **0%** |
+| **Average — YAML files (11)** | | | **24.5%** |
+| **Average — plain files (36)** | | | **4.4%** |
+| **Overall average (47 files)** | | | **9.1%** |
+
+> **Why the range?** SLIM's savings come from stripping Markdown decorators: YAML frontmatter → `@headers` (biggest win), inline bold/italic, links, badges, table padding, and list markers. Plain-prose files with no decoration have a hard floor. Adding YAML frontmatter to your agent files is the single biggest lever for token savings.
 
 Run the benchmark yourself:
 
 ```bash
-cd benchmark
 pip install tiktoken
-python benchmark.py
+python tests/benchmark_runner.py
 ```
 
 ---
@@ -316,6 +321,18 @@ The full language spec is in [`SLIM_SPEC_v1.0.slm`](SLIM_SPEC_v1.0.slm) — a se
 - Security model (prompt injection prevention, `@include` sandboxing)
 - Reserved keys
 - Migration guide from Markdown
+
+---
+
+## Contributing
+
+We're actively working to increase token savings — especially on plain-prose files. Ideas being explored: key-value line compaction, heading-level collapse, and smarter structural marker handling.
+
+**Contributions are very welcome.** Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+
+- All changes to `main` require a pull request with at least one reviewer approval
+- Run `python tests/md_to_slm.py` (22 self-tests) and `python tests/benchmark_runner.py` before submitting
+- Open an issue first for any non-trivial change so we can align on direction
 
 ---
 

@@ -202,7 +202,9 @@ Next meeting: Jan 22 at 2pm EST
     }
 
     const beforeTokens = SLIM.estimateTokens(input);
-    const afterTokens  = SLIM.estimateTokens(slmText);
+    // Measure LLM-facing tokens only — @header zone is stripped by orchestrator before the call.
+    // This is the real API cost metric; comparing full SLIM output would understate savings.
+    const afterTokens  = SLIM.estimateTokens(SLIM.slimToLlmText(slmText));
     setOutput(slmText, beforeTokens, afterTokens);
   }
 

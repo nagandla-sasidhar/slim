@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLIM — Structured LLM Instruction Markup</title>
-  <meta name="description" content="SLIM replaces Markdown for AI documentation and agent configuration. 43.3% fewer tokens, first-class AI primitives, zero rendering overhead." />
+  <meta name="description" content="SLIM replaces Markdown for AI documentation and agent configuration. Up to 34% fewer LLM-facing tokens on YAML agent configs, first-class AI primitives, zero rendering overhead." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -46,7 +46,7 @@
     <h1>The AI file format<br>that <span class="teal">thinks like you</span> do.</h1>
     <p class="hero-sub">
       SLIM replaces Markdown for AI prompts, agent configs, and tool schemas.
-      Strip orchestrator metadata before the LLM call. Save <strong>43% of tokens</strong> on average.
+      Strip orchestrator metadata before the LLM call. Save <strong>up to 34% of tokens</strong> on YAML agent configs — we're actively working to push this further. Contributions welcome.
     </p>
     <div class="hero-cta">
       <a href="playground.html" class="btn-primary">Try the Converter →</a>
@@ -120,8 +120,8 @@ def review(diff):
 <div class="stats-bar">
   <div class="stats-inner">
     <div class="stat-item">
-      <span class="stat-num">43.3%</span>
-      <span class="stat-label">avg token savings</span>
+      <span class="stat-num">24.5%</span>
+      <span class="stat-label">avg savings (YAML configs)</span>
     </div>
     <div class="stat-item">
       <span class="stat-num">85/85</span>
@@ -243,50 +243,50 @@ result = sanitize_user_content(
 <section id="benchmark">
   <div class="container">
     <span class="section-tag">Token Benchmark</span>
-    <h2 class="section-title text-center">Real files. Real savings.</h2>
-    <p class="section-sub center">Six real-world AI config and prompt files converted from Markdown. Measured with cl100k_base (OpenAI/Anthropic tokenizer).</p>
+    <h2 class="section-title text-center">Honest numbers. 47 real files.</h2>
+    <p class="section-sub center">47 real-world AI config and prompt files. Measured with cl100k_base on <em>LLM-facing tokens only</em> — orchestrator <code>@headers</code> are stripped before the LLM call, which is the actual API cost.</p>
 
     <div class="bench-avg">
-      <div class="bench-big">43.3%</div>
-      <div class="bench-sub">average token reduction across all files</div>
+      <div class="bench-big">24.5%</div>
+      <div class="bench-sub">average savings on YAML-frontmatter agent configs &nbsp;·&nbsp; 4.4% average on plain-prose files</div>
     </div>
 
     <div class="bench-bars">
       <div class="bench-row">
-        <span class="bench-name">find-skills.slm</span>
-        <div class="bench-track"><div class="bench-fill high" style="width:67.7%"></div></div>
-        <span class="bench-pct">67.7%</span>
+        <span class="bench-name">Agent config (YAML + rich format)</span>
+        <div class="bench-track"><div class="bench-fill high" style="width:34%"></div></div>
+        <span class="bench-pct">34.0%</span>
       </div>
       <div class="bench-row">
-        <span class="bench-name">pptx-skill.slm</span>
-        <div class="bench-track"><div class="bench-fill high" style="width:54.2%"></div></div>
-        <span class="bench-pct">54.2%</span>
+        <span class="bench-name">README (YAML + tables + links)</span>
+        <div class="bench-track"><div class="bench-fill high" style="width:33.2%"></div></div>
+        <span class="bench-pct">33.2%</span>
       </div>
       <div class="bench-row">
-        <span class="bench-name">setup-audit.slm</span>
-        <div class="bench-track"><div class="bench-fill" style="width:38.1%"></div></div>
-        <span class="bench-pct">38.1%</span>
+        <span class="bench-name">Skill file (YAML + heavy format)</span>
+        <div class="bench-track"><div class="bench-fill high" style="width:31.7%"></div></div>
+        <span class="bench-pct">31.7%</span>
       </div>
       <div class="bench-row">
-        <span class="bench-name">CLAUDE.md</span>
-        <div class="bench-track"><div class="bench-fill" style="width:36.1%"></div></div>
-        <span class="bench-pct">36.1%</span>
+        <span class="bench-name">Prompt template (YAML + bullets)</span>
+        <div class="bench-track"><div class="bench-fill" style="width:27.9%"></div></div>
+        <span class="bench-pct">27.9%</span>
       </div>
       <div class="bench-row">
-        <span class="bench-name">roadmap.slm</span>
-        <div class="bench-track"><div class="bench-fill" style="width:29.6%"></div></div>
-        <span class="bench-pct">29.6%</span>
+        <span class="bench-name">Plain agent config (no YAML)</span>
+        <div class="bench-track"><div class="bench-fill" style="width:6.5%"></div></div>
+        <span class="bench-pct">6.5%</span>
       </div>
       <div class="bench-row">
-        <span class="bench-name">codemie-catchup</span>
-        <div class="bench-track"><div class="bench-fill" style="width:14.7%"></div></div>
-        <span class="bench-pct">14.7%</span>
+        <span class="bench-name">Pure prose instructions</span>
+        <div class="bench-track"><div class="bench-fill" style="width:4.4%"></div></div>
+        <span class="bench-pct">4.4%</span>
       </div>
     </div>
 
     <p style="text-align:center; color:var(--text-4); font-size:0.82rem; margin-top:24px;">
-      Measured as: (MD tokens − SLIM stripped tokens) / MD tokens × 100<br>
-      "Stripped" means orchestrator-only @headers and ~ comments removed before LLM call.
+      Measured as: (MD tokens − LLM-facing SLIM tokens) / MD tokens × 100 · cl100k_base tokenizer<br>
+      We're actively working to increase savings on plain-prose files. <a href="https://github.com/nagandla-sasidhar/slim/blob/main/CONTRIBUTING.md" style="color:inherit">Contributions welcome →</a>
     </p>
   </div>
 </section>

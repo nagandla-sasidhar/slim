@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Self-tests & benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install tiktoken
+
+      - name: Run converter self-tests (22 cases)
+        run: python tests/md_to_slm.py
+
+      - name: Run benchmark (informational — does not fail CI)
+        run: python tests/benchmark_runner.py
+        continue-on-error: true
+
+  lint-js:
+    name: JS syntax check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check slim.js
+        run: node --check website/js/slim.js
+
+      - name: Syntax-check playground.js
+        run: node --check website/js/playground.js

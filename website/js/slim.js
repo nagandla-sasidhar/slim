@@ -202,9 +202,12 @@
 
   // ── Markdown → SLIM converter ────────────────────────────────
   function mdToSlm(markdown) {
-    if (typeof markdown !== 'string') return '@slim: 1.0\n';
+    if (typeof markdown !== 'string') return '';
     const lines = markdown.split('\n');
-    const slmHeaders = ['@slim: 1.0'];
+    // Only emit @slim: 1.0 when source has YAML frontmatter.
+    // Plain files have no metadata to convey and pay a pure token penalty for the header.
+    const hasYaml = lines.length > 0 && lines[0].trim() === '---';
+    const slmHeaders = hasYaml ? ['@slim: 1.0'] : [];
     let i = 0;
 
     // ── YAML front-matter → @headers ────────────────────────────
@@ -224,7 +227,6 @@
 
     const body = [];
     let inCode = false, codeFence = '';
-    let prevBlank = false;
 
     while (i < lines.length) {
       const raw = lines[i];
@@ -237,18 +239,18 @@
         inCode    = true;
         codeFence = t.match(/^(`+|~+)/)[1];
         body.push(raw.replace(/\s+$/, ''));
-        prevBlank = false; i++; continue;
+        i++; continue;
       }
       if (inCode) {
         if (t.startsWith(codeFence)) inCode = false;
         body.push(raw.replace(/\s+$/, ''));
-        prevBlank = false; i++; continue;
+        i++; continue;
       }
 
       // ── HTML comments → ~ or strip ──────────────────────────────
       if (t.startsWith('<!--') && t.endsWith('-->')) {
         const c = t.slice(4, -3).trim();
-        if (c) { body.push(`~ ${c}`); prevBlank = false; }
+        if (c) body.push(`~ ${c}`);
         i++; continue;
       }
       if (t.startsWith('<!--')) {
@@ -256,12 +258,10 @@
         i++; continue;
       }
 
-      // ── Blank lines: collapse multiples into one ─────────────────
-      if (t === '') {
-        if (!prevBlank && body.length > 0) body.push('');
-        prevBlank = true; i++; continue;
-      }
-      prevBlank = false;
+      // ── Blank lines: strip entirely — LLMs parse structure from headings/bullets,
+      // not visual whitespace. Removing blank lines is the single biggest token win
+      // on plain-prose agent files that have no other Markdown decoration to strip.
+      if (t === '') { i++; continue; }
 
       // ── Horizontal rules → strip (pure decoration) ───────────────
       if (/^[-*_]{3,}\s*$/.test(t)) { i++; continue; }
@@ -293,6 +293,20 @@
         i++; continue;
       }
 
+      // ── List item markers → strip (keeps indentation; LLMs infer list structure) ──
+      const listM = raw.match(/^(\s*)([-*+])\s+(.*)/);
+      if (listM) {
+        const content = _stripInline(listM[3]);
+        if (content) body.push(listM[1] + content);
+        i++; continue;
+      }
+      const ordM = raw.match(/^(\s*)\d+\.\s+(.*)/);
+      if (ordM) {
+        const content = _stripInline(ordM[2]);
+        if (content) body.push(ordM[1] + content);
+        i++; continue;
+      }
+
       // ── All other lines: strip inline decorators ─────────────────
       const indent  = raw.match(/^(\s*)/)[1];
       const cleaned = _stripInline(t);
@@ -303,7 +317,8 @@
     // Strip trailing blank lines
     while (body.length && body[body.length - 1] === '') body.pop();
 
-    return slmHeaders.join('\n') + '\n\n' + body.join('\n').trimEnd() + '\n';
+    const headerPart = slmHeaders.length ? slmHeaders.join('\n') + '\n\n' : '';
+    return headerPart + body.join('\n').trimEnd() + '\n';
   }
 
   // ── JSON → SLIM converter ────────────────────────────────────
@@ -335,6 +350,20 @@
     }
 
     return headers.join('\n') + '\n\n' + blocks.join('\n\n') + '\n';
+  }
+
+  // ── slimToLlmText — strip orchestrator @header zone ─────────
+  // Returns only the body zone — what the LLM actually receives.
+  // Mirrors Python slim_to_llm_text() in tests/md_to_slm.py.
+  function slimToLlmText(slm) {
+    if (typeof slm !== 'string' || !slm) return slm || '';
+    const idx = slm.indexOf('\n\n');
+    if (idx === -1) return slm;
+    const headerCandidate = slm.slice(0, idx);
+    if (headerCandidate.split('\n').every(ln => ln === '' || ln.startsWith('@'))) {
+      return slm.slice(idx + 2);
+    }
+    return slm;
   }
 
   // ── SLIM syntax highlighter (returns HTML) ───────────────────
@@ -377,5 +406,5 @@
       .join('\n');
   }
 
-  return { parse, mdToSlm, jsonToSlm, sanitizeUserContent, estimateTokens, highlight };
+  return { parse, mdToSlm, jsonToSlm, slimToLlmText, sanitizeUserContent, estimateTokens, highlight };
 });
