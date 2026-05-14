@@ -183,7 +183,7 @@ Next meeting: Jan 22 at 2pm EST
       } else if (currentFormat === 'json') {
         slmText = SLIM.jsonToSlm(input);
       } else {
-        slmText = '@slim: 1.0\n\n' + input;
+        slmText = '@slim: 2.0\n\n' + input;
       }
 
       const doc = SLIM.parse(slmText);
