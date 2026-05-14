@@ -1,0 +1,694 @@
+@slim: 2.0
+@+title: SLIM — Structured LLM Instruction Markup
+@+version: 2.0.0
+@+status: draft
+@+authors: Sasidhar Nagandla
+@+date: 2026-05-14
+@+license: MIT
+@+extension: .slm
+@+mime: text/slim
+@+encoding: UTF-8
+
+~ ============================================================
+~ SLIM v2.0 — FORMAL SPECIFICATION
+~ ============================================================
+
+# 1. Overview
+
+SLIM (Structured LLM Instruction Markup) is a plain-text file format designed for AI
+documentation, agent configuration, and prompt engineering. It replaces Markdown as the
+primary format for files consumed by Large Language Models (LLMs) and AI orchestration
+systems.
+
+SLIM achieves an average 24.5% token reduction over Markdown on YAML agent configs and
+4.4% on plain prose, measured on cl100k_base tokenizer (47-file benchmark, 2026-05-13).
+We are actively working to improve these numbers — contributions welcome.
+
+## 1.1 Design Goals
+
+Token efficiency: minimize tokens sent to LLM without losing semantic precision
+Semantic clarity: every structural element has unambiguous, single meaning
+Dual-author: readable and writable by both humans and AI systems
+Injection safety: hard section boundaries prevent prompt injection attacks
+All-purpose: covers system prompts, agent configs, tool schemas, docs, orchestration
+Parser-friendly: unambiguous grammar, no context-sensitive edge cases
+
+## 1.2 Core Architecture — Two Zones
+
+Every SLIM file is divided into two strictly ordered zones:
+
+::ZONE_DIAGRAM ascii
+┌─────────────────────────────────────────────────────┐
+│  HEADER ZONE  (@key: value lines)                   │
+│  Consumer: Orchestrator/parser only                 │
+│  LLM sees: NO (stripped before LLM call)            │
+│  Exception: @+ prefixed lines → LLM sees YES        │
+├─────────────────────────────────────────────────────┤
+│  CONTENT ZONE  (sections, prose, directives)        │
+│  Consumer: LLM (primary) + parser (variables)       │
+│  LLM sees: YES (after variable interpolation)       │
+│  Structure: ::NAME sections, :::NAME nested         │
+└─────────────────────────────────────────────────────┘
+
+# 2. Header Zone
+
+## 2.1 Syntax
+
+The header zone begins at the first line of the file and ends at the first line that is
+neither an @-prefixed line, a blank line, nor a --- separator. A line beginning with ::
+also terminates the header zone.
+
+```
+@key: value
+@+key: value
+@include: path
+```
+
+Rules:
+Key must be lowercase ASCII: [a-z][a-z0-9_-]*
+Separator: first ": " (colon + space). Value may contain subsequent colons.
+Multi-line value: continuation with 2-space indent on next line(s)
+Header zone terminates at first # heading, :: section, or non-blank non-@ line
+
+## 2.2 Strip Semantics
+
+| Prefix | LLM sees? | Variable interpolated? | Notes |
+| @key   | No        | Yes ($key → value)     | Orchestrator-only metadata |
+| @+key  | Yes       | Yes ($key → value)     | Context the LLM needs |
+
+This is the primary token efficiency mechanism. Configuration metadata never reaches LLM.
+
+## 2.3 Reserved Header Keys
+
+| Key         | Type      | Description |
+| @slim       | str       | Format version declaration. Omit for plain files (v2 assumed). |
+| @agent      | str       | Agent identifier (use @+agent to send to LLM) |
+| @model      | str       | Target model. Never sent to LLM (@model only). |
+| @mode       | str       | Execution mode |
+| @retry      | int       | Retry limit for orchestrator |
+| @timeout    | str       | Timeout duration (e.g. 30s, 5m) |
+| @tags       | list<str> | Metadata tags for indexing |
+| @include    | url/path  | Import another .slm file (resolved first) |
+| @version    | str       | Document version |
+
+Custom keys are permitted. All keys parsed as typed values (see Section 6).
+
+## 2.4 Type Coercion
+
+Header values are automatically typed:
+
+| Value Pattern | Inferred Type | Example |
+| true / false  | bool          | @async: true |
+| Integer       | int           | @retry: 3 |
+| Decimal       | float         | @threshold: 0.7 |
+| null / none   | null          | @context: null |
+| a, b, c       | list<str>     | @stack: python, js, go |
+| "42"          | str (forced)  | @id: "42" |
+| Anything else | str           | @name: SecurityBot |
+
+## 2.5 @include Directive
+
+```
+@include: ./base/agent.slm
+@include: ./tools/mcp_tools.slm
+```
+
+Resolved by parser before any other processing.
+Included file's @+ headers merge into current file's LLM context.
+Included file's @ headers are defaults (current file overrides).
+If both files define a ::NAME section, current file's section wins (last-one-wins).
+Circular includes: parse error.
+Max include depth: 5 levels.
+@include is always stripped (@+include is invalid).
+
+## 2.6 Multi-Document Files
+
+Use --- (triple dash on its own line) to separate independent documents in one file.
+Each document is parsed independently with its own header zone.
+--- is a document separator in SLIM — not a horizontal rule.
+In mdToSlm conversion, Markdown --- horizontal rules become blank lines, never ---.
+
+```
+@slim: 2.0
+@+agent: Planner
+# Role
+You plan tasks.
+---
+@slim: 2.0
+@+agent: Executor
+# Role
+You execute tasks.
+```
+
+# 3. Content Zone
+
+## 3.1 Structural Elements
+
+| Sigil      | Meaning              | Scope    |
+| #          | H1 section heading   | Content  |
+| ##         | H2 subsection        | Content  |
+| ###        | H3 deep section      | Content  |
+| ::NAME     | Named section (open) | Content  |
+| :::NAME    | Nested section       | Content  |
+| >KEYWORD   | Directive command    | Content  |
+| $key       | Variable reference   | Content  |
+| \|col\|    | Table row            | Content  |
+| ~          | Comment (stripped)   | Anywhere |
+| \X         | Literal escape       | Anywhere |
+
+## 3.2 Directives
+
+Directives are lines beginning with > followed immediately by a reserved ALL_CAPS keyword.
+No space between > and keyword is required; one space is canonical.
+
+Reserved keywords: CALL, ASSERT, YIELD, EMIT, LOG, ABORT, WAIT, RETRY
+
+```
+> CALL tool_name(param: value, param2: $var)
+> ASSERT $result.status == complete
+> YIELD $result.report
+> EMIT event_name(payload: $data)
+> LOG "Step completed"
+> ABORT "Reason for stopping"
+> WAIT 5s
+> RETRY 3
+```
+
+A > followed by anything other than a reserved keyword is treated as literal text.
+Example: "> 90% of bugs..." — not a directive.
+
+## 3.3 Variable References
+
+$key references are interpolated by the parser before the content is sent to the LLM.
+
+$key — simple reference (must match a header key, case-sensitive)
+$result.field — runtime dotpath reference (resolved by orchestrator at runtime)
+$list[0] — indexed reference (runtime)
+Literal dollar sign: \$amount → "$amount" verbatim
+Variables in values containing newlines: only first line used
+
+## 3.4 Tables
+
+Table rows use pipe-delimited syntax. No separator row required (unlike Markdown).
+First row is treated as the header. Saves ~6 tokens per table vs Markdown.
+
+```
+| Format | Tokens | Readable |
+| JSON   | 340    | Medium   |
+| SLIM   | 175    | High     |
+```
+
+Empty cells: || (adjacent pipes).
+
+## 3.5 Inline Formatting
+
+Inline formatting markers are stripped from LLM-facing output by all SLIM parsers.
+Authors may write formatted SLIM-native files; parsers strip markers before sending to LLM.
+
+Stripped markers: ** * _ ` (bold, italic, inline code)
+
+```
+**important** → important
+_note_        → note
+`git push`    → git push
+```
+
+No links in v2. URLs should be placed in named sections when needed.
+No inline images (use ::BLOCK_NAME base64:png for images).
+
+## 3.6 Comments
+
+Lines starting with ~ (tilde) are stripped by all SLIM parsers before any output.
+They never reach the LLM or the orchestrator. Use for author notes, TODOs, disabled lines.
+
+```
+~ Author: Jane Doe
+~ TODO: add edge case for empty input
+~ @+agent: DisabledAgent  ← this line is never parsed
+```
+
+# 4. Section Syntax
+
+## 4.1 Syntax
+
+```
+::SECTION_NAME
+content line one
+content line two
+
+::SECTION_NAME type
+verbatim typed content
+
+:::NESTED_NAME
+nested content
+```
+
+Rules:
+Section names: SCREAMING_SNAKE_CASE by convention; parser accepts any casing.
+::NAME opens a section. Ends at the next :: section, EOF, or document separator (---).
+:::NAME opens a nested section (max 1 level deep). Ends at next ::: or :: or EOF.
+4 or more colons at line start: parse error.
+A blank line must precede :: at top level (or it must be at file/document start).
+::: inside an outer :: section does not require a blank line before it.
+Section names must be unique within a document (including across @include'd files).
+
+## 4.2 Verbatim vs Processed
+
+The type annotation on a section determines how its content is processed:
+
+| Condition                        | Mode       | Variable interpolation | Directives active |
+| No type annotation               | Processed  | Yes                    | Yes               |
+| Type: markdown, text, prose      | Processed  | Yes                    | Yes               |
+| Type: code or data language      | Verbatim   | No                     | No                |
+
+Verbatim types: python, js, ts, go, rust, java, sql, bash, json, yaml, csv,
+               raw, ascii, html, xml, base64:*, and any unrecognised type.
+Processed types: markdown, text, prose, and no annotation.
+
+In verbatim sections, $variables are literal and > CALL is literal text.
+Use verbatim for code, queries, configs, and any content where syntax must be exact.
+Use processed (no type) for instructions, context, and prose the LLM should interpret.
+
+## 4.3 Escape Rule
+
+In all sections, \:: at the start of a line produces a literal ::.
+This is the only backslash sequence processed in verbatim sections.
+All other backslashes in verbatim sections are captured as literal characters.
+
+Example — CSS pseudo-elements inside a verbatim block:
+
+```
+::STYLES css
+body { color: red; }
+\::before { content: ""; }
+\::after  { content: ""; }
+```
+
+The parser outputs ::before and ::after to the LLM. The leading \ is consumed.
+
+In processed sections, the full escape set applies:
+\@ → @ literal
+\$ → $ literal
+\> → > literal
+\:: → :: literal (line start)
+\~ → ~ literal
+
+## 4.4 Blank Line Requirement
+
+:: is recognised as a section marker only when:
+  Preceded by a blank line, OR
+  At the start of the file, OR
+  Immediately after a document separator (---), OR
+  Immediately after the header zone ends.
+
+This prevents accidental section breaks from :: appearing in prose or code.
+Example: "The C++ scope resolution operator :: is used for namespace access."
+         → mid-line, never triggers a section.
+         → line-start without blank line before it: also safe.
+
+::: does not require a blank line. It only appears inside an outer :: section,
+where natural text starting with ::: at line start does not occur in practice.
+
+## 4.5 Nesting
+
+Nesting depth is limited to 1 level (:: → :::). No deeper nesting is valid.
+
+```
+::EXAMPLES
+
+:::EXAMPLE_1
+user: Is this SQL safe?
+assistant: No. SQL injection on line 2.
+
+:::EXAMPLE_2
+user: How to fix it?
+assistant: Use parameterized queries.
+```
+
+:::EXAMPLE_1 ends when :::EXAMPLE_2 opens.
+:::EXAMPLE_2 ends when the next :: section opens, or at EOF.
+::EXAMPLES ends when the next top-level :: section opens, or at EOF.
+
+## 4.6 Special Types
+
+| Type         | Verbatim | Meaning |
+| python       | Yes      | Python source code |
+| js           | Yes      | JavaScript source |
+| ts           | Yes      | TypeScript source |
+| json         | Yes      | JSON data |
+| yaml         | Yes      | YAML data |
+| sql          | Yes      | SQL query |
+| bash         | Yes      | Shell commands |
+| go           | Yes      | Go source code |
+| rust         | Yes      | Rust source code |
+| java         | Yes      | Java source code |
+| html         | Yes      | HTML markup |
+| xml          | Yes      | XML data |
+| csv          | Yes      | Comma-separated data |
+| ascii        | Yes      | ASCII art / diagrams |
+| raw          | Yes      | Uninterpreted text |
+| base64:png   | Yes      | Base64-encoded PNG image |
+| base64:jpg   | Yes      | Base64-encoded JPEG image |
+| markdown     | No       | Markdown prose (processed) |
+| text         | No       | Plain prose (processed) |
+| prose        | No       | Alias for text (processed) |
+
+# 5. Schema Definitions
+
+## 5.1 Syntax
+
+Tool schemas define callable functions available to the agent.
+Schema blocks begin with :tool_name (single colon prefix — distinct from :: sections).
+Properties are 2-space indented below the tool name.
+
+```
+:tool_name
+  desc: Human-readable description of what this tool does
+  param1!: type
+  param2?: type = default_value
+  param3?: [option_a|option_b|option_c] = option_a
+  -> return_field: type, return_field2: type
+```
+
+Note: :tool_name (single colon) defines a schema.
+      ::SECTION_NAME (double colon) opens a content section.
+      These are unambiguous to both parser and human reader.
+
+Property suffixes:
+! = required (parse error if missing at call time)
+? = optional
+= value = default value (implies optional)
+
+## 5.2 Custom Type Definitions
+
+Custom types are defined in named sections with a reserved name TYPE_DEF:
+
+```
+::TYPE_DEF
+  TypeName:
+    field1!: type
+    field2?: type = default
+```
+
+Custom types can then be used in schema definitions: -> results: list<TypeName>
+
+## 5.3 Complete Schema Example
+
+```
+::TYPE_DEF
+  Finding:
+    line!: int
+    severity!: [low|medium|high|critical]
+    message!: str
+    fix?: str
+
+:analyze_code
+  desc: Run static analysis on a code snippet
+  code!: str
+  language?: [python|js|java|go|rust] = python
+  ruleset?: [owasp|cwe|custom] = owasp
+  depth?: int = 3
+  -> score: float, findings: list<Finding>, summary: str
+```
+
+# 6. Type System
+
+## 6.1 Primitive Types
+
+| Type  | Description    | Examples |
+| str   | UTF-8 string   | "hello", hello |
+| int   | Integer        | 3, -10, 0 |
+| float | Decimal        | 0.7, -1.5, 3.14 |
+| bool  | Boolean        | true, false |
+| null  | Null/None      | null, none |
+
+## 6.2 First-Class Types
+
+| Type     | Description          | Validation |
+| datetime | ISO 8601 datetime    | 2026-05-14T14:30:00Z |
+| url      | Valid URL            | https://example.com |
+| uuid     | UUID v4              | 550e8400-e29b-41d4-a716 |
+| json     | Arbitrary JSON object | Any valid JSON |
+
+## 6.3 Collection Types
+
+| Type       | Syntax     | Example |
+| Enum       | [a\|b\|c]  | [prod\|staging\|dev] |
+| List       | list<T>    | list<str>, list<Finding> |
+| Dict       | dict<K,V>  | dict<str,int> |
+
+## 6.4 User-Defined Types
+
+Defined in ::TYPE_DEF sections. Reusable across schema definitions in the same file
+or in files that @include this file.
+
+# 7. Security Model
+
+## 7.1 Zone Ordering Enforcement
+
+The header zone MUST precede the content zone. Any @key found after the first #
+heading, :: section, or non-blank non-@ line is treated as literal content text,
+not a header. This prevents header injection.
+
+## 7.2 Section Boundary Injection
+
+Parsers must detect when user-provided content contains :: at the start of a line
+(after a blank line) and treat it as an injection attempt in strict mode.
+Use sanitize_user_content() on all user-provided strings before embedding.
+
+## 7.3 Variable Value Sanitization
+
+Variable values containing newline characters: only first line is used.
+Parsers MUST provide sanitize_user_content(str) → str that escapes at line start:
+
+  :: at line start → \::
+  @               → \@
+  $               → \$
+  >               → \>
+  ~               → \~
+
+Implementation: split by \n, apply escapes per line, rejoin.
+Mid-line occurrences of these characters are safe and must NOT be escaped.
+
+## 7.4 @include Path Traversal
+
+@include paths are resolved relative to the including file's directory.
+Absolute paths: allowed but flagged by linters.
+Network URLs: parser-implementation-dependent (disabled by default).
+Circular includes: detect and raise parse error.
+
+# 8. Parser Behaviour
+
+## 8.1 Parse Modes
+
+| Mode    | On error  | Use case |
+| strict  | Raise exception with line number | Linters, CI validation |
+| lenient | Collect warnings, return partial result | LLM-facing production parsers |
+
+## 8.2 Output Structure
+
+A parsed SLIM document produces:
+
+```
+SLIMDocument:
+  version: str                       # from @slim header, default "2.0"
+  headers: dict<str, any>            # all @ headers (stripped)
+  llm_headers: dict<str, any>        # @+ headers (LLM-visible)
+  sections: dict<str, Section>       # named :: sections by name
+  nested: dict<str, list<Section>>   # ::: sections grouped by parent name
+  schemas: dict<str, Schema>         # :tool definitions
+  directives: list<Directive>        # > KEYWORD calls
+  body_text: str                     # full content, variables interpolated
+  llm_text: str                      # body_text minus ~ comments and @ header zone
+```
+
+## 8.3 Strip Mode
+
+strip_mode=True removes @ headers and ~ comments before returning llm_text.
+This is the text that should be sent to the LLM.
+Inline formatting markers (* ** _ `) are stripped from llm_text in all modes.
+
+## 8.4 Version Compatibility
+
+| @slim value | Rules applied |
+| absent      | v2 (current default) |
+| 2.0         | v2 (:: sections, inline stripped) |
+| 1.0         | v1 (=== blocks, inline passthrough) |
+
+Parsers MUST support both v1 and v2 rules selected by the @slim header.
+
+## 8.5 Round-Trip Canonical Form
+
+slim fmt produces canonical form:
+One blank line between top-level :: sections
+No trailing whitespace
+Section names in SCREAMING_SNAKE_CASE
+Schema properties: required (!) first, optional (?) second, alphabetical within each group
+Consistent 2-space indentation in schemas
+
+## 8.6 Whitespace Rules
+
+| Rule |
+| Indentation: spaces only. Tabs = parse error in schemas. |
+| Blank lines between sections: one blank line canonical; multiple collapsed to one. |
+| Blank lines inside verbatim sections: preserved. |
+| Trailing spaces on all lines: stripped. |
+| BOM (UTF-8 byte order mark): stripped silently. |
+
+# 9. BNF Grammar
+
+::BNF_GRAMMAR text
+document       ::= header_zone content_zone
+header_zone    ::= (header_line | blank_line)*
+header_line    ::= at_key ": " value newline
+                 | "@include" ": " path newline
+at_key         ::= ("@" | "@+") [a-z][a-z0-9_-]*
+content_zone   ::= (section | nested_section | schema | directive | table_row
+                  | paragraph | comment | blank_line)*
+section        ::= section_open section_content
+section_open   ::= "::" SECTION_NAME (" " type)? newline
+nested_section ::= nested_open nested_content
+nested_open    ::= ":::" SECTION_NAME (" " type)? newline
+section_content ::= (escaped_line | non_section_line)*
+escaped_line   ::= "\::" text newline
+schema         ::= ":" identifier newline property+
+property       ::= "  " identifier ("!" | "?")? ": " type (" = " value)? newline
+                 | "  " "->" " " return_spec newline
+directive      ::= ">" " " KEYWORD (" " args)? newline
+table_row      ::= "|" (cell "|")+ newline
+paragraph      ::= text newline
+comment        ::= "~" text? newline
+variable_ref   ::= "$" identifier ("." identifier | "[" integer "]")*
+SECTION_NAME   ::= [A-Za-z][A-Za-z0-9_]*
+KEYWORD        ::= "CALL"|"ASSERT"|"YIELD"|"EMIT"|"LOG"|"ABORT"|"WAIT"|"RETRY"
+type           ::= identifier (":" identifier)?
+
+# 10. File Metadata
+
+| Property       | Value |
+| Extension      | .slm |
+| MIME type      | text/slim |
+| Encoding       | UTF-8 (BOM optional, stripped) |
+| Line endings   | LF preferred, CRLF tolerated |
+| Max header val | 2048 characters |
+| Max include depth | 5 levels |
+| Max section nesting | 1 level (:: → :::) |
+| Section name charset | ASCII letters, digits, underscore |
+
+# 11. Migration Guide
+
+## 11.1 From Markdown to SLIM v2
+
+| Markdown | SLIM v2 | Notes |
+| --- frontmatter | @key: value header | Use @+ to expose to LLM |
+| # Heading | # Heading | Identical |
+| - bullet | bare line | Strip the - prefix; saves 1 token per bullet |
+| 1. step | bare line | Strip the 1. prefix |
+| \`\`\`lang ... \`\`\` | ::BLOCK_NAME lang ... | Named + typed, no close tag |
+| <!-- comment --> | ~ comment | Shorter |
+| \| col \| col \| \n \|---\|---\| | \| col \| col \| | No separator row; saves ~6 tokens |
+| *bold* / **bold** | stripped on output | No action needed; parser strips |
+| `inline code` | stripped on output | No action needed; parser strips |
+| --- horizontal rule | blank line | In mdToSlm: HR → blank line, never doc separator |
+
+## 11.2 SLIM-Only Features (no Markdown equivalent)
+
+@key header stripping (tokens never reach LLM)
+$variable interpolation
+> DIRECTIVE command syntax
+:tool schema definitions with typed params
+::NAME section type tags and verbatim mode
+~ comments (stripped silently)
+Section boundary injection protection
+list<T>, dict<K,V>, [enum|values] types
+
+## 11.3 Migration Steps (Markdown → SLIM v2)
+
+1. Rename file from .md to .slm
+2. Convert YAML frontmatter (---) to @key: / @+key: headers
+3. Remove --- frontmatter delimiters
+4. Replace ``` code blocks with ::BLOCK_NAME lang (no close tag needed)
+5. Replace <!-- comments --> with ~ comments
+6. Remove | --- | separator rows from all tables
+7. Add @slim: 2.0 as first header line (or omit — v2 is assumed)
+8. Run: slim validate yourfile.slm
+
+## 11.4 Migrating from SLIM v1 to SLIM v2
+
+| SLIM v1 | SLIM v2 | Notes |
+| @slim: 1.0 | @slim: 2.0 | Update version declaration |
+| === BLOCK_NAME [type] | ::BLOCK_NAME type | No brackets around type |
+| === /BLOCK_NAME | (remove) | No close tag in v2 |
+| === BLOCK_NAME | ::BLOCK_NAME | Untyped block |
+| === /BLOCK_NAME | (remove) | |
+| Nested === blocks | :: outer + ::: inner | |
+| Inline *bold* passthrough | Stripped automatically | No change needed in files |
+| sanitize: escapes === | sanitize: escapes :: at line start | Update calls |
+
+Automated migration: slim migrate --from=1.0 --to=2.0 yourfile.slm
+
+# 12. Versioning
+
+| Version | Status  | Block syntax | Inline fmt | Notes |
+| 1.0     | Legacy  | === NAME [type] ... === /NAME | Passthrough | Supported via @slim: 1.0 |
+| 2.0     | Current | ::NAME type (no close) | Stripped | Default when @slim absent |
+| 2.1     | Planned | TBD | | Conditional blocks, loop constructs |
+
+# 13. Complete Reference Example
+
+::FULL_EXAMPLE slim
+@slim: 2.0
+@include: ./base/code_reviewer.slm
+@model: claude-opus-4-7
+@retry: 3
+@timeout: 60s
+@+agent: SecurityBot
+@+task: PR-942
+@+env: production
+
+~ Security review flow for incoming pull requests
+
+# Role
+You are $agent performing a security audit on $task in $env.
+
+# Rules
+Score risk 0.0-1.0. Above 0.7 blocks the PR automatically.
+Cite exact line number for each finding.
+Use [CRITICAL] / [HIGH] / [MEDIUM] / [LOW] labels inline.
+
+# Steps
+1. Read USER_CODE section below
+2. > CALL analyze_risk(pr: $task, code: $input, env: $env)
+3. > ASSERT $result.score != null
+4. > YIELD $result.report
+
+::USER_CODE python
+def get_user(id):
+    query = f"SELECT * FROM users WHERE id={id}"
+    return db.execute(query)
+
+::EXAMPLES
+
+:::EXAMPLE_1
+user: Is f"SELECT * WHERE id={id}" safe?
+assistant: No. [CRITICAL] Line 2 — SQL injection. Use: db.execute("SELECT * WHERE id=?", (id,))
+
+:::EXAMPLE_2
+user: What severity is a missing input validation?
+assistant: [HIGH] Missing validation enables injection. Always sanitize before queries.
+
+::TYPE_DEF
+  Finding:
+    line!: int
+    severity!: [low|medium|high|critical]
+    message!: str
+    fix?: str
+
+:analyze_risk
+  desc: Score a PR for security vulnerabilities
+  pr!: str
+  code!: str
+  env!: [prod|staging|dev]
+  ruleset?: [owasp|cwe|custom] = owasp
+  depth?: int = 3
+  -> score: float, findings: list<Finding>, summary: str

@@ -9,7 +9,7 @@ tests/md_to_slm.py        @nagandla-sasidhar
 website/js/slim.js        @nagandla-sasidhar
 
 # Spec file — any change must be reviewed carefully
-SLIM_SPEC_v1.0.slm        @nagandla-sasidhar
+SLIM_SPEC_v2.0.slm        @nagandla-sasidhar
 
 # CI / GitHub config — prevent workflow tampering
 .github/                  @nagandla-sasidhar

@@ -276,7 +276,7 @@ safe = sanitize_user_content(user_input)
 
 ```
 slim/
-├── SLIM_SPEC_v1.0.slm      # Full language specification (self-describing .slm file)
+├── SLIM_SPEC_v2.0.slm      # Full language specification (self-describing .slm file)
 ├── slim/
 │   ├── parser.py            # Python reference implementation
 │   └── __init__.py
@@ -312,7 +312,7 @@ python tests/conformance.py
 
 ## Specification
 
-The full language spec is in [`SLIM_SPEC_v1.0.slm`](SLIM_SPEC_v1.0.slm) — a self-describing SLIM file that covers:
+The full language spec is in [`SLIM_SPEC_v2.0.slm`](SLIM_SPEC_v2.0.slm) — a self-describing SLIM file that covers:
 
 - Complete BNF grammar
 - Header, Body, Block, and Directive syntax rules
