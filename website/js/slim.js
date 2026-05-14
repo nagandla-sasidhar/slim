@@ -1,5 +1,5 @@
 /**
- * SLIM — JavaScript Parser & Converter v1.0
+ * SLIM — JavaScript Parser & Converter v2.0
  * Structured LLM Instruction Markup
  *
  * © 2026 Sasidhar Nagandla. MIT License.
@@ -14,8 +14,12 @@
   const DIRECTIVE_KEYWORDS = new Set(['CALL','ASSERT','YIELD','EMIT','LOG','ABORT','WAIT','RETRY']);
   const HEADER_KEY_RE  = /^@(\+?)([a-z][a-z0-9_-]*)$/;
   const DIRECTIVE_RE   = /^>\s+([A-Z]+)(.*)$/;
+  // v1 block syntax (kept for backward compat)
   const BLOCK_OPEN_RE  = /^===\s+([A-Z][A-Z0-9_]*)(?:\s+\[([^\]]+)\])?$/;
   const BLOCK_CLOSE_RE = /^===\s+\/([A-Z][A-Z0-9_]*)$/;
+  // v2 section syntax
+  const SECTION_RE     = /^::([A-Za-z][A-Za-z0-9_]*)(?:\s+(\S+))?$/;
+  const NESTED_RE      = /^:::([A-Za-z][A-Za-z0-9_]*)(?:\s+(\S+))?$/;
 
   // Hard limits to prevent resource exhaustion (Finding 6 / DoS guard)
   const MAX_INPUT_CHARS  = 1 * 1024 * 1024; // 1 MB
@@ -59,7 +63,7 @@
     });
   }
 
-  // ── Block extractor ──────────────────────────────────────────
+  // ── v1 Block extractor (=== NAME ... === /NAME) ──────────────
   function extractBlocks(lines, offset) {
     const blocks = Object.create(null), out = [], errors = [];
     let i = 0;
@@ -86,6 +90,37 @@
       out.push(lines[i].replace(/\s+$/, '')); i++;
     }
     return { blocks, outLines: out, errors };
+  }
+
+  // ── v2 Section extractor (::NAME type, :::NAME type) ─────────
+  function extractSections(lines) {
+    const sections = Object.create(null);
+    let openName = null, openType = null, content = [];
+    function flush() {
+      if (openName) {
+        sections[openName] = { name: openName, type: openType, content: content.join('\n') };
+        openName = null; openType = null; content = [];
+      }
+    }
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i], t = raw.trim();
+      // :::NAME (nested) — no blank-line requirement
+      if (t.startsWith(':::') && !t.startsWith('::::')) {
+        const m = NESTED_RE.exec(t);
+        if (m) { flush(); openName = m[1]; openType = m[2] || null; continue; }
+      }
+      // ::NAME (top-level) — requires blank line before (or start of file)
+      if (t.startsWith('::') && !t.startsWith(':::')) {
+        const prev = i > 0 ? lines[i - 1].trim() : '';
+        if (i === 0 || prev === '') {
+          const m = SECTION_RE.exec(t);
+          if (m) { flush(); openName = m[1]; openType = m[2] || null; continue; }
+        }
+      }
+      if (openName) content.push(/^\\::/.test(raw) ? raw.slice(1).replace(/\s+$/, '') : raw.replace(/\s+$/, ''));
+    }
+    flush();
+    return sections;
   }
 
   // ── Main parser ──────────────────────────────────────────────
@@ -119,9 +154,17 @@
       i++;
     }
 
-    let bodyLines = lines.slice(i);
-    const { blocks, outLines, errors: bErrs } = extractBlocks(bodyLines, i);
-    bodyLines = outLines; errors.push(...bErrs);
+    // Detect version and choose appropriate extractor
+    const version = String(Object.prototype.hasOwnProperty.call(headers, 'slim') ? headers['slim'] : '2.0');
+    const rawBodyLines = lines.slice(i);
+    let blocks, bodyLines;
+    if (version === '1.0') {
+      const result = extractBlocks(rawBodyLines, i);
+      blocks = result.blocks; bodyLines = result.outLines; errors.push(...result.errors);
+    } else {
+      blocks = extractSections(rawBodyLines);
+      bodyLines = rawBodyLines.map(l => l.replace(/\s+$/, ''));
+    }
 
     const directives = [];
     for (let ln = 0; ln < bodyLines.length; ln++) {
@@ -133,7 +176,7 @@
     // Merge with Object.assign to a null-prototype object (Finding 7)
     const variables = Object.assign(Object.create(null), headers, llmHeaders);
     return {
-      version: String(Object.prototype.hasOwnProperty.call(headers, 'slim') ? headers['slim'] : '1.0'),
+      version,
       headers, llmHeaders, bodyLines, blocks, directives, variables, errors, warnings,
       toLlmText() {
         const out = [];
@@ -149,7 +192,7 @@
   function _emptyDoc(errors) {
     const h = Object.create(null), lh = Object.create(null), v = Object.create(null);
     return {
-      version: '1.0', headers: h, llmHeaders: lh, bodyLines: [], blocks: Object.create(null),
+      version: '2.0', headers: h, llmHeaders: lh, bodyLines: [], blocks: Object.create(null),
       directives: [], variables: v, errors: errors || [], warnings: [],
       toLlmText() { return ''; },
       get tokenEstimate() { return 0; }
@@ -160,8 +203,10 @@
   function sanitizeUserContent(text) {
     if (typeof text !== 'string') return '';
     text = text.replace(/\\/g, '\\\\');
-    for (const s of ['===', '@', '$', '>', '~'])
+    for (const s of ['@', '$', '>', '~'])
       text = text.replace(new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), `\\${s}`);
+    // Escape :: only at line start (mid-line :: is safe — common in C++, CSS)
+    text = text.split('\n').map(l => /^::/.test(l) ? '\\' + l : l).join('\n');
     return text;
   }
 
@@ -200,14 +245,14 @@
     return s;
   }
 
-  // ── Markdown → SLIM converter ────────────────────────────────
+  // ── Markdown → SLIM v2 converter ─────────────────────────────
   function mdToSlm(markdown) {
     if (typeof markdown !== 'string') return '';
     const lines = markdown.split('\n');
-    // Only emit @slim: 1.0 when source has YAML frontmatter.
+    // Only emit @slim: 2.0 when source has YAML frontmatter.
     // Plain files have no metadata to convey and pay a pure token penalty for the header.
     const hasYaml = lines.length > 0 && lines[0].trim() === '---';
-    const slmHeaders = hasYaml ? ['@slim: 1.0'] : [];
+    const slmHeaders = hasYaml ? ['@slim: 2.0'] : [];
     let i = 0;
 
     // ── YAML front-matter → @headers ────────────────────────────
@@ -226,25 +271,31 @@
     }
 
     const body = [];
-    let inCode = false, codeFence = '';
+    let codeCount = 0;
 
     while (i < lines.length) {
       const raw = lines[i];
       const t   = raw.trim();
 
-      // ── Code fences: keep verbatim ──────────────────────────────
-      // Backtick fences are MORE compact than === BLOCK syntax.
-      // Converting them would ADD tokens — keep them as-is.
-      if (!inCode && /^(`{3,}|~{3,})/.test(t)) {
-        inCode    = true;
-        codeFence = t.match(/^(`+|~+)/)[1];
-        body.push(raw.replace(/\s+$/, ''));
-        i++; continue;
-      }
-      if (inCode) {
-        if (t.startsWith(codeFence)) inCode = false;
-        body.push(raw.replace(/\s+$/, ''));
-        i++; continue;
+      // ── Code fences → ::CODE_N type (verbatim, no close tag) ───
+      if (/^(`{3,}|~{3,})/.test(t)) {
+        const fm = t.match(/^(`+|~+)(.*)/);
+        const codeFence = fm[1];
+        const lang = fm[2].trim();
+        codeCount++;
+        const secName = `CODE_${codeCount}`;
+        body.push('::' + secName + (lang ? ' ' + lang : ' raw'));
+        i++;
+        while (i < lines.length) {
+          const inner = lines[i];
+          const innerT = inner.trim();
+          if (innerT.startsWith(codeFence)) { i++; break; }
+          // Escape :: at line start inside verbatim content
+          const escaped = /^::/.test(inner) ? '\\' + inner : inner;
+          body.push(escaped.replace(/\s+$/, ''));
+          i++;
+        }
+        continue;
       }
 
       // ── HTML comments → ~ or strip ──────────────────────────────
@@ -321,18 +372,18 @@
     return headerPart + body.join('\n').trimEnd() + '\n';
   }
 
-  // ── JSON → SLIM converter ────────────────────────────────────
+  // ── JSON → SLIM v2 converter ──────────────────────────────────
   function jsonToSlm(jsonText) {
-    if (typeof jsonText !== 'string') return '@slim: 1.0\n';
+    if (typeof jsonText !== 'string') return '@slim: 2.0\n';
     let obj;
     try { obj = JSON.parse(jsonText); }
-    catch (e) { return `@slim: 1.0\n\n~ JSON parse error: ${escHtml(String(e.message))}\n`; }
+    catch (e) { return `@slim: 2.0\n\n~ JSON parse error: ${escHtml(String(e.message))}\n`; }
 
     if (typeof obj !== 'object' || obj === null || Array.isArray(obj))
-      return `@slim: 1.0\n\n~ JSON root must be an object\n`;
+      return `@slim: 2.0\n\n~ JSON root must be an object\n`;
 
-    const headers = ['@slim: 1.0'];
-    const blocks = [];
+    const headers = ['@slim: 2.0'];
+    const sections = [];
 
     // Use Object.keys (not for...in) to avoid prototype chain enumeration (Finding 7)
     for (const key of Object.keys(obj)) {
@@ -345,11 +396,11 @@
       } else {
         const bName = key.toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'BLOCK';
         const content = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
-        blocks.push(`=== ${bName} [json]\n${content}\n=== /${bName}`);
+        sections.push(`::${bName} json\n${content}`);
       }
     }
 
-    return headers.join('\n') + '\n\n' + blocks.join('\n\n') + '\n';
+    return headers.join('\n') + '\n\n' + sections.join('\n\n') + '\n';
   }
 
   // ── slimToLlmText — strip orchestrator @header zone ─────────
@@ -390,7 +441,8 @@
           return esc.replace(/^(@[a-z][a-z0-9_-]*)(:)/, (_, k, p) =>
             `<span class="sl-key">${k}</span><span class="sl-punct">${p}</span>`);
 
-        if (/^===/.test(t))
+        // v1 === blocks and v2 :: / ::: sections both get sl-block styling
+        if (/^===/.test(t) || /^:::?[A-Za-z]/.test(t))
           return `<span class="sl-block">${esc}</span>`;
 
         if (/^>\s+[A-Z]/.test(t))

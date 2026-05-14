@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLIM Documentation — Structured LLM Instruction Markup</title>
-  <meta name="description" content="Complete documentation for SLIM v1.0: syntax reference, parser API, plugin installation, BNF grammar, and migration guide." />
+  <meta name="description" content="Complete documentation for SLIM v2.0: syntax reference, parser API, plugin installation, BNF grammar, and migration guide." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -203,7 +203,7 @@
 <!-- ── Navigation ──────────────────────────────────────────────── -->
 <nav>
   <div class="nav-inner">
-    <a href="index.html" class="nav-logo">SLIM <span>v1.0</span></a>
+    <a href="index.html" class="nav-logo">SLIM <span>v2.0</span></a>
     <div class="nav-links">
       <a href="index.html#features"   class="nav-link">Features</a>
       <a href="index.html#benchmark"  class="nav-link">Benchmarks</a>
@@ -227,7 +227,7 @@
       <div class="sidebar-group-title">Syntax</div>
       <a href="#header-zone"     class="sidebar-link">Header Zone</a>
       <a href="#body-zone"       class="sidebar-link">Body Zone</a>
-      <a href="#block-zone"      class="sidebar-link">Block Zone</a>
+      <a href="#sections"         class="sidebar-link">Sections</a>
       <a href="#directives"      class="sidebar-link">Directives</a>
       <a href="#variables"       class="sidebar-link">Variables</a>
       <a href="#schemas"         class="sidebar-link">Schema Definitions</a>
@@ -262,7 +262,7 @@
 
     <!-- Docs Hero -->
     <div class="docs-hero">
-      <div class="version-badge">v1.0 · Stable</div>
+      <div class="version-badge">v2.0 · Stable</div>
       <h1>SLIM Documentation</h1>
       <p>Complete reference for Structured LLM Instruction Markup — syntax, parser API, plugins, and migration from Markdown.</p>
     </div>
@@ -281,7 +281,7 @@
       <h3>Write your first .slm file</h3>
       <div class="doc-code">
         <div class="doc-code-hdr">hello.slm</div>
-        <pre><span class="sl-key">@slim</span>: 1.0
+        <pre><span class="sl-key">@slim</span>: 2.0
 <span class="sl-key">@model</span>: claude-opus-4-7
 <span class="sl-llm-key">@+agent</span>: Greeter
 <span class="sl-llm-key">@+name</span>: Alice
@@ -330,7 +330,7 @@ response = client.messages.create(
     <!-- ── Overview ───────────────────────────────────────────── -->
     <section class="docs-section" id="overview">
       <h2><span class="tag">Intro</span> Overview</h2>
-      <p>Every SLIM file is divided into three strictly ordered zones:</p>
+      <p>Every SLIM file is divided into two strictly ordered zones:</p>
 
       <table class="ref-table">
         <thead><tr><th>Zone</th><th>Content</th><th>Who reads it?</th></tr></thead>
@@ -341,17 +341,13 @@ response = client.messages.create(
             <td>Orchestrator (<code>@key</code>) and LLM (<code>@+key</code>)</td>
           </tr>
           <tr>
-            <td><strong>Body Zone</strong></td>
-            <td>Prose, headings, bullets, directives, tables</td>
-            <td>LLM (primary) — variables interpolated first</td>
-          </tr>
-          <tr>
-            <td><strong>Block Zone</strong></td>
-            <td><code>=== NAME … === /NAME</code> regions in the body</td>
-            <td>LLM sees content; parser extracts named blocks</td>
+            <td><strong>Content Zone</strong></td>
+            <td>Prose, headings, bullets, directives, tables, <code>::sections</code></td>
+            <td>LLM (primary) — variables interpolated, <code>~</code> comments stripped</td>
           </tr>
         </tbody>
       </table>
+      <p>Named sections (<code>::NAME type</code>) are markers within the content zone — they provide typed, injection-safe regions without a separate block zone.</p>
 
       <p>Files use the <code>.slm</code> extension with MIME type <code>text/slim</code> and UTF-8 encoding.</p>
 
@@ -415,12 +411,12 @@ response = client.messages.create(
       <h3>Multi-document files</h3>
       <p>Use <code>---</code> on its own line to separate independent documents in one file. Each is parsed with its own header zone.</p>
       <div class="doc-code">
-        <pre><span class="sl-key">@slim</span>: 1.0
+        <pre><span class="sl-key">@slim</span>: 2.0
 <span class="sl-llm-key">@+agent</span>: Planner
 <span class="sl-heading"># Role</span>
 You plan tasks.
 ---
-<span class="sl-key">@slim</span>: 1.0
+<span class="sl-key">@slim</span>: 2.0
 <span class="sl-llm-key">@+agent</span>: Executor
 <span class="sl-heading"># Role</span>
 You execute tasks.</pre>
@@ -442,7 +438,7 @@ You execute tasks.</pre>
           <tr><td class="mono">&gt; KEYWORD</td><td>Directive — see <a href="#directives">Directives</a></td></tr>
           <tr><td class="mono">$key</td><td>Variable reference — see <a href="#variables">Variables</a></td></tr>
           <tr><td class="mono">~ text</td><td>Comment — always stripped before LLM call</td></tr>
-          <tr><td class="mono">\X</td><td>Literal escape — <code>\@</code>, <code>\$</code>, <code>\===</code> etc.</td></tr>
+          <tr><td class="mono">\X</td><td>Literal escape — <code>\@</code>, <code>\$</code>, <code>\::</code> (at line start) etc.</td></tr>
           <tr><td class="mono">`code`</td><td>Inline code (passed through verbatim)</td></tr>
           <tr><td class="mono">*bold* / _italic_</td><td>Inline formatting (passed through verbatim)</td></tr>
         </tbody>
@@ -457,56 +453,75 @@ You execute tasks.</pre>
       </div>
     </section>
 
-    <!-- ── Block Zone ─────────────────────────────────────────── -->
-    <section class="docs-section" id="block-zone">
-      <h2><span class="tag">Syntax</span> Block Zone</h2>
-      <p>Named, typed regions that can appear anywhere in the body zone. Block boundaries are injection-safe — user content can't escape them.</p>
+    <!-- ── Sections ────────────────────────────────────────────── -->
+    <section class="docs-section" id="sections">
+      <h2><span class="tag">Syntax</span> Sections</h2>
+      <p>Named regions that can appear anywhere in the content zone. Sections use a no-close-tag design — content belongs to a section until the next section header. <code>::</code> is a single BPE token, saving ~5 tokens per block vs the old <code>===</code> syntax.</p>
 
       <div class="doc-code">
         <div class="doc-code-hdr">Syntax</div>
-        <pre><span class="sl-block">=== BLOCK_NAME</span>
-content
-<span class="sl-block">=== /BLOCK_NAME</span>
+        <pre><span class="sl-block">::SECTION_NAME</span>
+content here
 
-<span class="sl-block">=== BLOCK_NAME [type]</span>
-typed content
-<span class="sl-block">=== /BLOCK_NAME</span></pre>
+<span class="sl-block">::SECTION_NAME type</span>
+typed content (verbatim for code types)</pre>
+      </div>
+
+      <h3>Nested sections (<code>:::</code>)</h3>
+      <div class="doc-code">
+        <pre><span class="sl-block">::OUTER</span>
+outer content
+
+<span class="sl-block">:::INNER_1</span>
+first nested content
+
+<span class="sl-block">:::INNER_2</span>
+second nested content</pre>
       </div>
 
       <h3>Rules</h3>
       <ul>
-        <li>Block names: <code>SCREAMING_SNAKE_CASE</code>, ASCII only, <code>[A-Z][A-Z0-9_]*</code></li>
-        <li>Closing tag must mirror the opening name exactly</li>
-        <li>Type tag is optional: <code>[python]</code>, <code>[json]</code>, <code>[sql]</code>, <code>[bash]</code>, <code>[raw]</code>, <code>[csv]</code>, <code>[ascii]</code>, <code>[base64:png]</code></li>
-        <li>Nesting: single level only (one block inside another is valid; deeper is a parse error)</li>
-        <li>Content is captured verbatim — whitespace and blank lines preserved</li>
-        <li>Escape <code>===</code> inside a block: prefix with <code>\</code> → <code>\===</code> becomes literal</li>
+        <li>Section names: <code>[A-Za-z][A-Za-z0-9_]*</code> — any case (e.g. <code>CODE_1</code>, <code>UserInput</code>)</li>
+        <li><code>::NAME</code> requires a blank line before it (or file start) — prevents false triggers on CSS <code>::before</code>, C++ <code>::</code>, etc.</li>
+        <li><code>:::NAME</code> (nested) — no blank-line requirement; only valid inside a <code>::</code> section</li>
+        <li>Max nesting depth: 1 level (<code>::::NAME</code> is a parse error)</li>
+        <li>Type tag determines content mode — code/data types = verbatim (no <code>$var</code> interpolation); no type or prose types = processed</li>
+        <li>Escape <code>::</code> at line start inside a section: prefix with <code>\</code> → <code>\::</code> becomes literal</li>
       </ul>
 
-      <h3>Example with nested blocks</h3>
+      <h3>Type tags</h3>
+      <table class="ref-table">
+        <thead><tr><th>Type</th><th>Mode</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">(none)</td><td>Processed</td><td>Prose, instructions, templates with <code>$var</code> interpolation</td></tr>
+          <tr><td class="mono">python js sql bash go rust java</td><td>Verbatim</td><td>Code samples — <code>$vars</code> not interpolated</td></tr>
+          <tr><td class="mono">json csv yaml xml toml</td><td>Verbatim</td><td>Structured data payloads</td></tr>
+          <tr><td class="mono">raw</td><td>Verbatim</td><td>Any literal content</td></tr>
+          <tr><td class="mono">ascii</td><td>Verbatim</td><td>ASCII diagrams, box art</td></tr>
+          <tr><td class="mono">markdown text prose</td><td>Processed</td><td>Explicitly processed content</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Example with nested sections</h3>
       <div class="doc-code">
         <div class="doc-code-hdr">few-shot.slm</div>
-        <pre><span class="sl-block">=== EXAMPLES</span>
+        <pre><span class="sl-block">::EXAMPLES</span>
 
-<span class="sl-block">=== EXAMPLE_1</span>
+<span class="sl-block">:::EXAMPLE_1</span>
 user: Is this SQL safe?
 assistant: No — SQL injection on line 2.
-<span class="sl-block">=== /EXAMPLE_1</span>
 
-<span class="sl-block">=== EXAMPLE_2</span>
+<span class="sl-block">:::EXAMPLE_2</span>
 user: How do I fix it?
-assistant: Use parameterized queries.
-<span class="sl-block">=== /EXAMPLE_2</span>
-
-<span class="sl-block">=== /EXAMPLES</span></pre>
+assistant: Use parameterized queries.</pre>
       </div>
 
       <div class="callout warn">
         <div class="callout-icon">⚠️</div>
         <div class="callout-body">
           <strong>Injection safety</strong>
-          Always call <code>sanitize_user_content()</code> before embedding user-provided text in a block.
-          An unescaped <code>=== /BLOCK_NAME</code> in user input would break out of the block boundary.
+          Always call <code>sanitize_user_content()</code> before embedding user-provided text in a section.
+          An unescaped <code>::NAME</code> at the start of a blank-preceded line in user input would open a new section.
         </div>
       </div>
     </section>
@@ -557,7 +572,7 @@ assistant: Use parameterized queries.
       <p><code>$key</code> references are resolved by the parser before the body text is sent to the LLM. Values come from <code>@key</code> or <code>@+key</code> headers.</p>
 
       <div class="doc-code">
-        <pre><span class="sl-key">@slim</span>: 1.0
+        <pre><span class="sl-key">@slim</span>: 2.0
 <span class="sl-llm-key">@+agent</span>: SecurityBot
 <span class="sl-llm-key">@+task</span>: PR-942
 
@@ -613,7 +628,7 @@ You are <span class="sl-var">$agent</span> reviewing <span class="sl-var">$task<
       <h3>Complete example</h3>
       <div class="doc-code">
         <div class="doc-code-hdr">tools.slm</div>
-        <pre><span class="sl-key">@slim</span>: 1.0s
+        <pre><span class="sl-key">@slim</span>: 2.0
 
 :search_web
   desc: Search the internet for recent information
@@ -633,13 +648,12 @@ You are <span class="sl-var">$agent</span> reviewing <span class="sl-var">$task<
 
       <h3>Custom type definitions</h3>
       <div class="doc-code">
-        <pre><span class="sl-block">=== TYPE_DEF</span>
+        <pre><span class="sl-block">::TYPE_DEF</span>
   Finding:
     line!: int
     severity!: [low|medium|high|critical]
     message!: str
     fix?: str
-<span class="sl-block">=== /TYPE_DEF</span>
 
 :analyze_code
   desc: Run static analysis on a code snippet
@@ -651,7 +665,7 @@ You are <span class="sl-var">$agent</span> reviewing <span class="sl-var">$task<
       <div class="callout note">
         <div class="callout-icon">📌</div>
         <div class="callout-body">
-          Schema files use <code>@slim: 1.0s</code> (note the <code>s</code> suffix) to indicate schema extensions are active.
+          Schema files use <code>@slim: 2.0</code> for schema files with tool definitions.
         </div>
       </div>
     </section>
@@ -715,8 +729,8 @@ You are <span class="sl-var">$agent</span> reviewing <span class="sl-var">$task<
       <h3>Zone ordering enforcement</h3>
       <p>The header zone <strong>must</strong> precede the body zone. Any <code>@key</code> found after the first <code>#</code> heading or non-blank non-<code>@</code> line is treated as literal body text, not a header. This prevents header injection — user content placed before headers cannot override <code>@model</code>, <code>@include</code>, or other orchestrator fields.</p>
 
-      <h3>Block boundary injection</h3>
-      <p>All parsers validate that block content does not contain unescaped <code>===</code> lines. An unescaped <code>===</code> inside a block is a parse error in strict mode, a warning in lenient mode.</p>
+      <h3>Section injection prevention</h3>
+      <p>Parsers validate that embedded user content does not contain unescaped <code>::</code> lines (preceded by a blank line). Use <code>sanitize_user_content()</code> to escape all control characters before embedding user text.</p>
 
       <h3>sanitize_user_content()</h3>
       <p>Always call this before embedding user-provided text in a SLIM document. It escapes all SLIM sigils:</p>
@@ -730,16 +744,15 @@ safe = sanitize_user_content(user_input)
 # → "\@model: evil-model\n\> ABORT everything"
 
 doc_text = f"""
-@slim: 1.0
+@slim: 2.0
 @+task: review
 
-=== USER_CONTENT
+::USER_CONTENT
 {safe}
-=== /USER_CONTENT
 """</pre>
       </div>
 
-      <p>Characters escaped: <code>@</code>, <code>$</code>, <code>&gt;</code>, <code>===</code>, <code>~</code> → <code>\@</code>, <code>\$</code>, <code>\&gt;</code>, <code>\===</code>, <code>\~</code></p>
+      <p>Characters escaped: <code>@</code>, <code>$</code>, <code>&gt;</code>, <code>~</code> everywhere; <code>::</code> at line start only → <code>\@</code>, <code>\$</code>, <code>\&gt;</code>, <code>\~</code>, <code>\::</code></p>
 
       <h3>@include path traversal</h3>
       <ul>
@@ -879,7 +892,7 @@ code --install-extension slim-language-1.0.0.vsix</pre>
         <thead><tr><th>Feature</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>Syntax highlighting</td><td>All SLIM constructs colored using TextMate grammar</td></tr>
-          <tr><td>Code folding</td><td><code>=== BLOCK … === /BLOCK</code> regions fold/collapse</td></tr>
+          <tr><td>Code folding</td><td><code>::BLOCK</code> section regions fold/collapse</td></tr>
           <tr><td>Bracket matching</td><td><code>[type]</code> tags and pipe tables</td></tr>
           <tr><td>Snippets</td><td>Common SLIM patterns: headers, blocks, schemas, directives</td></tr>
           <tr><td>Line comments</td><td><code>Ctrl+/</code> inserts <code>~ </code></td></tr>
@@ -925,7 +938,7 @@ code --install-extension slim-language-1.0.0.vsix</pre>
         <thead><tr><th>Feature</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td>Syntax highlighting</td><td>All SLIM constructs colored, configurable per theme</td></tr>
-          <tr><td>Code folding</td><td><code>=== BLOCK … === /BLOCK</code> regions collapse</td></tr>
+          <tr><td>Code folding</td><td><code>::BLOCK</code> section regions collapse</td></tr>
           <tr><td>Color customization</td><td>Settings → Editor → Color Scheme → SLIM</td></tr>
           <tr><td>Line commenting</td><td><code>Ctrl+/</code> inserts <code>~ </code></td></tr>
           <tr><td>File type icon</td><td><code>.slm</code> files shown with SLIM icon</td></tr>
@@ -951,7 +964,7 @@ code --install-extension slim-language-1.0.0.vsix</pre>
       <h3>Features</h3>
       <ul>
         <li>Syntax highlighting for all SLIM constructs using dark theme colors</li>
-        <li><code>=== BLOCK … === /BLOCK</code> fold regions</li>
+        <li><code>::BLOCK</code> section fold regions</li>
         <li>Line commenting with <code>~ </code></li>
         <li>Keyword highlighting: <code>CALL ASSERT YIELD EMIT LOG ABORT WAIT RETRY</code></li>
       </ul>
@@ -961,22 +974,21 @@ code --install-extension slim-language-1.0.0.vsix</pre>
     <section class="docs-section" id="bnf">
       <h2><span class="tag">Reference</span> BNF Grammar</h2>
       <div class="doc-code">
-        <div class="doc-code-hdr">SLIM v1.0 BNF</div>
-        <pre>document     ::= header_zone body_zone
+        <div class="doc-code-hdr">SLIM v2.0 BNF</div>
+        <pre>document     ::= header_zone content_zone
 header_zone  ::= (header_line | blank_line)*
 header_line  ::= at_key ": " value newline
                | "@include" ": " path newline
 at_key       ::= ("@" | "@+") [a-z][a-z0-9_-]*
 
-body_zone    ::= (section | block | schema | directive
+content_zone ::= (section | schema | directive
                | table_row | bullet | ordered_step
                | paragraph | comment | blank_line)*
-section      ::= "#"+ " " text newline
-block        ::= block_open block_content block_close
-block_open   ::= "===" " " BLOCK_NAME (" [" type "]")? newline
-block_close  ::= "===" " /" BLOCK_NAME newline
-block_content ::= (escaped_line | non_boundary_line)*
-escaped_line  ::= "\===" text newline
+section      ::= section_open section_content
+section_open ::= "::" NAME (" " type)? newline
+               | ":::" NAME (" " type)? newline
+section_content ::= (escaped_line | content_line)*
+escaped_line ::= "\::" text newline
 schema       ::= ":" identifier newline property+
 property     ::= "  " identifier ("!" | "?")? ": " type
                  (" = " value)? newline
@@ -988,7 +1000,7 @@ ordered_step ::= [0-9]+ "." " " text newline
 comment      ::= "~" text? newline
 variable_ref ::= "$" identifier ("." identifier | "[" integer "]")*
 
-BLOCK_NAME   ::= [A-Z][A-Z0-9_]*
+NAME         ::= [A-Za-z][A-Za-z0-9_]*
 KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
                | "LOG" | "ABORT" | "WAIT" | "RETRY"</pre>
       </div>
@@ -1000,7 +1012,7 @@ KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
       <table class="ref-table">
         <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="mono">@slim</td><td><code>str</code></td><td>Format version. Required on first line. Current: <code>1.0</code></td></tr>
+          <tr><td class="mono">@slim</td><td><code>str</code></td><td>Format version. Required on first line. Current: <code>2.0</code></td></tr>
           <tr><td class="mono">@model</td><td><code>str</code></td><td>Target LLM. Always stripped — never use <code>@+model</code>.</td></tr>
           <tr><td class="mono">@agent</td><td><code>str</code></td><td>Agent identifier. Use <code>@+agent</code> to expose to LLM.</td></tr>
           <tr><td class="mono">@mode</td><td><code>str</code></td><td>Execution mode (e.g. <code>strict</code>, <code>lenient</code>)</td></tr>
@@ -1026,7 +1038,7 @@ KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
           <tr><td class="mono"># Heading</td><td class="mono"># Heading</td><td>Identical</td></tr>
           <tr><td class="mono">- bullet</td><td class="mono">- bullet</td><td>Identical</td></tr>
           <tr><td class="mono">1. step</td><td class="mono">1. step</td><td>Identical</td></tr>
-          <tr><td class="mono">```lang code ```</td><td class="mono">=== BLOCK [lang] … === /BLOCK</td><td>Named + typed + injection-safe</td></tr>
+          <tr><td class="mono">```lang code ```</td><td class="mono">::BLOCK_NAME lang</td><td>Named + typed + verbatim (no close tag)</td></tr>
           <tr><td class="mono">&lt;!-- comment --&gt;</td><td class="mono">~ comment</td><td>Shorter, always stripped</td></tr>
           <tr><td class="mono">| col | \n |---|</td><td class="mono">| col |</td><td>No separator row — saves ~6 tokens/table</td></tr>
           <tr><td class="mono">*bold*</td><td class="mono">*bold*</td><td>Identical</td></tr>
@@ -1039,7 +1051,7 @@ KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
         <li>Rename the file from <code>.md</code> to <code>.slm</code></li>
         <li>Add <code>@slim: 1.0</code> as the very first line</li>
         <li>Convert YAML frontmatter (<code>---</code> block) to <code>@key:</code> or <code>@+key:</code> headers and remove the <code>---</code> delimiters</li>
-        <li>Replace <code>``` lang ``` </code> fenced blocks with <code>=== BLOCK_NAME [lang] … === /BLOCK_NAME</code></li>
+        <li>Replace <code>``` lang ``` </code> fenced blocks with <code>::BLOCK_NAME lang</code> (no close tag; content is verbatim)</li>
         <li>Replace <code>&lt;!-- comments --&gt;</code> with <code>~</code> comment lines</li>
         <li>Remove <code>| --- |</code> separator rows from all tables</li>
         <li>Run <code>slim validate yourfile.slm</code> to verify</li>
@@ -1051,7 +1063,7 @@ KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
         <li><code>$variable</code> interpolation resolved at parse time</li>
         <li><code>&gt; DIRECTIVE</code> command syntax for workflow steps</li>
         <li><code>:tool</code> schema definitions with typed parameters</li>
-        <li><code>=== BLOCK [type]</code> type tags and injection boundaries</li>
+        <li><code>::NAME type</code> sections — typed, injection-safe, no close tag</li>
         <li><code>~</code> comments — always stripped, zero LLM overhead</li>
         <li><code>list&lt;T&gt;</code>, <code>dict&lt;K,V&gt;</code>, <code>[enum|values]</code> type system</li>
         <li>Multi-document files with <code>---</code> separators</li>
@@ -1075,7 +1087,7 @@ KEYWORD      ::= "CALL" | "ASSERT" | "YIELD" | "EMIT"
 <footer>
   <div class="container">
     <div class="footer-inner">
-      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v1.0</span></div>
+      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v2.0</span></div>
       <div class="footer-links">
         <a href="index.html">Home</a>
         <a href="playground.html">Playground</a>

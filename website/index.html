@@ -27,7 +27,7 @@
 <!-- ── Navigation ──────────────────────────────────────────── -->
 <nav>
   <div class="nav-inner">
-    <a href="index.html" class="nav-logo">SLIM <span>v1.0</span></a>
+    <a href="index.html" class="nav-logo">SLIM <span>v2.0</span></a>
     <div class="nav-links">
       <a href="#features" class="nav-link">Features</a>
       <a href="#benchmark"  class="nav-link">Benchmarks</a>
@@ -107,10 +107,9 @@ Check for security vulnerabilities
 Flag breaking changes
 Be concise and direct
 
-<span class="sl-block">=== REVIEW [python]</span>
+<span class="sl-block">::REVIEW python</span>
 def review(diff):
-    return analyze(diff)
-<span class="sl-block">=== /REVIEW</span></pre>
+    return analyze(diff)</pre>
       </div>
     </div>
   </div>
@@ -198,11 +197,10 @@ You are reviewing <span class="sl-var">$task</span> today.
 
       <div class="feature-card">
         <div class="feature-icon">📦</div>
-        <h3>Block Zones</h3>
-        <p>Named, typed content blocks with hard injection boundaries. Escaped content can't break out of its block.</p>
-        <div class="feature-code"><span class="sl-block">=== SCHEMA [json]</span>
-{"name": "string"}
-<span class="sl-block">=== /SCHEMA</span></div>
+        <h3>Sections</h3>
+        <p>Named, typed content regions with hard injection boundaries. No close tag needed — <code>::</code> is a single token, saving ~5 tokens per block.</p>
+        <div class="feature-code"><span class="sl-block">::SCHEMA json</span>
+{"name": "string"}</div>
       </div>
 
       <div class="feature-card">
@@ -229,7 +227,7 @@ You are reviewing <span class="sl-var">$task</span> today.
         <div class="feature-icon">🔒</div>
         <h3>Security Model</h3>
         <p>Built-in <code>sanitize_user_content()</code> escapes all SLIM sigils before user text is embedded. Header injection prevention by design.</p>
-        <div class="feature-code"><span class="sl-comment">~ @ $ &gt; === ~ all escaped</span>
+        <div class="feature-code"><span class="sl-comment">~ @ $ &gt; ~ :: all escaped</span>
 result = sanitize_user_content(
   user_input
 )</div>
@@ -335,9 +333,9 @@ result = sanitize_user_content(
               <td><span class="badge badge-sub">substituted</span></td>
             </tr>
             <tr>
-              <td><span class="sigil">=== NAME [type]</span><br><span class="sigil">=== /NAME</span></td>
+              <td><span class="sigil">::NAME type</span><br><span class="sigil">:::NESTED type</span></td>
               <td class="sigil-note">Body</td>
-              <td class="sigil-desc">Named block with optional type tag. Hard injection boundary — <code>\===</code> inside is literal. Blocks can be nested one level.</td>
+              <td class="sigil-desc">Named section with optional type tag. Hard injection boundary — <code>\::</code> at line start is literal. Sections can be nested one level with <code>:::</code>.</td>
               <td><span class="badge badge-visible">visible</span></td>
             </tr>
             <tr>
@@ -361,8 +359,8 @@ result = sanitize_user_content(
     <div id="tab-example" class="tab-panel">
       <div class="code-block">
         <div class="code-block-header"><span>agent-config.slm</span></div>
-        <pre><span class="sl-comment">~ SLIM v1.0 complete example</span>
-<span class="sl-key">@slim</span>: 1.0
+        <pre><span class="sl-comment">~ SLIM v2.0 complete example</span>
+<span class="sl-key">@slim</span>: 2.0
 <span class="sl-key">@model</span>: claude-opus-4-7     <span class="sl-comment">~ stripped from LLM</span>
 <span class="sl-key">@retry</span>: 3                   <span class="sl-comment">~ stripped from LLM</span>
 <span class="sl-key">@timeout</span>: 30               <span class="sl-comment">~ stripped from LLM</span>
@@ -377,10 +375,9 @@ You are <span class="sl-var">$agent</span>, a security-focused code reviewer ass
 - Review SQL queries for injection risks
 - Flag insecure deserialization patterns
 
-<span class="sl-block">=== CONTEXT [markdown]</span>
+<span class="sl-block">::CONTEXT markdown</span>
 PR title: Fix authentication flow
 Changed files: auth.py, session.py
-<span class="sl-block">=== /CONTEXT</span>
 
 <span class="sl-directive">&gt; CALL analyze_pr(id: <span class="sl-var">$task</span>, depth: full)</span>
 <span class="sl-directive">&gt; ASSERT $result.severity != "critical"</span>
@@ -392,7 +389,7 @@ Changed files: auth.py, session.py
     <div id="tab-schemas" class="tab-panel">
       <div class="code-block">
         <div class="code-block-header"><span>tools.slm — Schema definitions</span></div>
-        <pre><span class="sl-key">@slim</span>: 1.0s
+        <pre><span class="sl-key">@slim</span>: 2.0
 
 <span class="sl-comment">~ Tool definitions for function calling</span>
 
@@ -469,7 +466,7 @@ meta?: dict&lt;str,any&gt; <span class="sl-comment">→ typed dict</span></pre>
 <footer>
   <div class="container">
     <div class="footer-inner">
-      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v1.0</span></div>
+      <div class="footer-logo">SLIM <span>Structured LLM Instruction Markup v2.0</span></div>
       <div class="footer-links">
         <a href="playground.html">Playground</a>
         <a href="#syntax">Spec</a>
