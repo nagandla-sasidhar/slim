@@ -238,8 +238,8 @@
     s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
     // Reference-style links: [text][ref] → text
     s = s.replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1');
-    // HTML tags: <br />, <b>, </b>, <details>, etc.
-    s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+    // HTML tags: only strip known HTML element names — guards against <placeholder text> being destroyed
+    s = s.replace(/<\/?(a|abbr|b|blockquote|br|caption|cite|code|col|colgroup|dd|del|details|dfn|div|dl|dt|em|figcaption|figure|footer|h[1-6]|header|hr|i|img|input|ins|kbd|label|li|main|mark|nav|ol|p|pre|q|s|section|small|span|strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|var)(?:\s[^>]*)?\s*\/?>/gi, '');
     // Collapse multiple spaces left by removals
     s = s.replace(/  +/g, ' ').trim();
     return s;
@@ -356,6 +356,22 @@
         const content = _stripInline(ordM[2]);
         if (content) body.push(ordM[1] + content);
         i++; continue;
+      }
+
+      // ── Pre-existing SLIM section markers → pass through verbatim ────
+      // Handles .md files that already embed ::NAME type markers; content
+      // must not have strip_inline() applied (e.g. <placeholder> values intact)
+      if (/^:::?[A-Za-z][A-Za-z0-9_]*(?:\s+\S+)?$/.test(t)) {
+        body.push(t);
+        i++;
+        while (i < lines.length) {
+          const inner = lines[i];
+          if (inner.trim() === '') break;
+          const escaped = /^::/.test(inner) ? '\\' + inner : inner;
+          body.push(escaped.replace(/\s+$/, ''));
+          i++;
+        }
+        continue;
       }
 
       // ── All other lines: strip inline decorators ─────────────────

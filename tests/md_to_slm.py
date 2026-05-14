@@ -41,6 +41,16 @@ except Exception:
 # strip_inline
 # ---------------------------------------------------------------------------
 
+# Only strip recognised HTML element names — guards against <placeholder text> being destroyed.
+_HTML_TAGS = (
+    'a|abbr|b|blockquote|br|caption|cite|code|col|colgroup|dd|del|details|dfn|div|dl|dt'
+    '|em|figcaption|figure|footer|h[1-6]|header|hr|i|img|input|ins|kbd|label|li|main|mark'
+    '|nav|ol|p|pre|q|s|section|small|span|strong|sub|summary|sup|table|tbody|td|tfoot'
+    '|th|thead|time|tr|u|ul|var'
+)
+_HTML_TAG_RE = re.compile(rf'</?(?:{_HTML_TAGS})(?:\s[^>]*)?\s*/?>', re.IGNORECASE)
+
+
 def strip_inline(s: str) -> str:
     """Remove inline Markdown decorators that cost tokens but add no LLM value."""
     s = re.sub(r'\*{3}(.+?)\*{3}', r'\1', s)
@@ -53,7 +63,7 @@ def strip_inline(s: str) -> str:
     s = re.sub(r'!\[([^\]]*)\]\([^)]*\)', lambda m: m.group(1), s)
     s = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', s)
     s = re.sub(r'\[([^\]]*)\]\[[^\]]*\]', r'\1', s)
-    s = re.sub(r'</?[a-zA-Z][^>]*>', '', s)
+    s = _HTML_TAG_RE.sub('', s)
     s = re.sub(r'  +', ' ', s).strip()
     return s
 
@@ -202,6 +212,21 @@ def md_to_slm(markdown: str) -> str:
             i += 1
             continue
 
+        # ── Pre-existing SLIM section markers → pass through verbatim ────
+        # Handles .md files that already embed ::NAME type markers; content
+        # must not have strip_inline() applied (e.g. <placeholder> values intact)
+        if re.match(r'^:::?[A-Za-z][A-Za-z0-9_]*(?:\s+\S+)?$', t):
+            body.append(t)
+            i += 1
+            while i < len(lines):
+                inner = lines[i]
+                if inner.strip() == '':
+                    break
+                line = ('\\' + inner if re.match(r'^::', inner) else inner)
+                body.append(line.rstrip())
+                i += 1
+            continue
+
         # ── All other lines: strip inline decorators ─────────────────
         indent = re.match(r'^(\s*)', raw).group(1)
         cleaned = strip_inline(t)
@@ -290,6 +315,8 @@ if __name__ == '__main__':
     check('strikethrough',          strip_inline('~~old~~ new'),                          'old new')
     check('inline image',           strip_inline('See ![logo](http://x.com/a.png) here'), 'See logo here')
     check('ref link',               strip_inline('[text][ref-id]'),                       'text')
+    check('<placeholder> preserved', strip_inline('export TOKEN=<your-api-token>'),        'export TOKEN=<your-api-token>')
+    check('<multi-word> preserved',  strip_inline('set X=<your Jira API token>'),          'set X=<your Jira API token>')
 
     print()
     print('--- md_to_slm tests ---')
@@ -360,6 +387,12 @@ if __name__ == '__main__':
     slm13 = md_to_slm(md13)
     check('no-lang fence gets raw type', '::CODE_1 raw' in slm13, True)
 
+    # 14. Pre-existing ::SECTION marker passes through verbatim (no strip_inline on content)
+    md14 = '# Setup\n\n::ENV_SETUP bash\nexport TOKEN=<your-api-token>\nexport USER=<username>\n'
+    slm14 = md_to_slm(md14)
+    check('::section passthrough verbatim',
+          '::ENV_SETUP bash' in slm14 and 'export TOKEN=<your-api-token>' in slm14, True)
+
     print()
     print('--- sanitize_user_content tests ---')
 
@@ -384,5 +417,7 @@ if __name__ == '__main__':
     print()
     total = tests_passed + tests_failed
     status = 'ALL PASSED' if tests_failed == 0 else 'SOME FAILED'
-    print(f'Results: {tests_passed}/{total} passed -- {status}')
+    expected = 30
+    count_ok = '' if total == expected else f'  WARNING: expected {expected} tests, found {total}'
+    print(f'Results: {tests_passed}/{total} passed -- {status}{count_ok}')
     sys.exit(0 if tests_failed == 0 else 1)

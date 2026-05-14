@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: pip install tiktoken
 
-      - name: Run converter self-tests (27 cases)
+      - name: Run converter self-tests (30 cases)
         run: python tests/md_to_slm.py
 
       - name: Run benchmark (informational — does not fail CI)
