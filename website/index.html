@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="stylesheet" href="css/main.css" />
   <!-- Security headers (Finding 3) -->
   <!-- Note: X-Frame-Options and X-Content-Type-Options must be set as HTTP server headers -->
@@ -26,10 +27,13 @@
 <body>
 
 <!-- ── Navigation ──────────────────────────────────────────── -->
-<nav>
+<nav id="main-nav">
   <div class="nav-inner">
     <a href="index.html" class="nav-logo">SLIM <span>v2.0</span></a>
-    <div class="nav-links">
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="nav-links">
       <a href="#features" class="nav-link">Features</a>
       <a href="#benchmark"  class="nav-link">Benchmarks</a>
       <a href="#syntax"     class="nav-link">Syntax</a>
@@ -479,6 +483,7 @@ meta?: dict&lt;str,any&gt; <span class="sl-comment">→ typed dict</span></pre>
 </footer>
 
 <script src="js/tabs.js"></script>
+<script src="js/nav.js"></script>
 
 </body>
 </html>

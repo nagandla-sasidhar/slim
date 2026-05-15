@@ -12,6 +12,7 @@
                  object-src 'none'; base-uri 'self';" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -32,10 +33,13 @@
   </style>
 </head>
 <body>
-<nav>
+<nav id="main-nav">
   <div class="nav-inner">
     <a href="index.html" class="nav-logo">SLIM <span>v2.0</span></a>
-    <div class="nav-links">
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="nav-links">
       <a href="index.html" class="nav-link">Home</a>
       <a href="playground.html" class="nav-link">Playground</a>
       <a href="docs.html" class="nav-link">Docs</a>
@@ -59,5 +63,6 @@
     <div class="footer-copy">© 2026 Sasidhar Nagandla · Made with passion · MIT License</div>
   </div>
 </footer>
+<script src="js/nav.js"></script>
 </body>
 </html>

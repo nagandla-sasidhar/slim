@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="stylesheet" href="css/main.css" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self';
@@ -26,10 +27,13 @@
 <body>
 
 <!-- ── Navigation ──────────────────────────────────────────── -->
-<nav>
+<nav id="main-nav">
   <div class="nav-inner">
     <a href="index.html" class="nav-logo">SLIM <span>v2.0</span></a>
-    <div class="nav-links">
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="nav-links">
       <a href="index.html" class="nav-link">← Home</a>
       <a href="index.html#syntax" class="nav-link">Syntax</a>
       <a href="docs.html" class="nav-link">Docs</a>
@@ -137,5 +141,6 @@ Keyboard shortcut: Ctrl+Enter to convert."
 
 <script src="js/slim.js"></script>
 <script src="js/playground.js"></script>
+<script src="js/nav.js"></script>
 </body>
 </html>
