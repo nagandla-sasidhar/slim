@@ -419,6 +419,84 @@
     return headers.join('\n') + '\n\n' + sections.join('\n\n') + '\n';
   }
 
+  // ── YAML → SLIM v2 converter ─────────────────────────────────
+  function yamlToSlm(yamlText) {
+    if (typeof yamlText !== 'string') return '@slim: 2.0\n';
+
+    const lines = yamlText.split('\n');
+    const headers = ['@slim: 2.0'];
+    const sections = [];
+    let i = 0;
+
+    // Skip leading document separator
+    while (i < lines.length && lines[i].trim() === '---') i++;
+
+    while (i < lines.length) {
+      const raw = lines[i];
+      const t   = raw.trim();
+
+      if (t === '' || t === '---' || t === '...') { i++; continue; }
+
+      // YAML comment → SLIM comment
+      if (t.startsWith('#')) {
+        const c = t.slice(1).trim();
+        if (c) sections.push('~ ' + c);
+        i++; continue;
+      }
+
+      // Top-level key at column 0
+      const km = raw.match(/^([a-zA-Z_][a-zA-Z0-9_-]*)\s*:([ \t](.*))?$/);
+      if (!km) { i++; continue; }
+
+      const key = km[1];
+      const val = (km[3] || '').trim();
+      // Neutralise prototype-polluting key names (same guard as jsonToSlm)
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') { i++; continue; }
+
+      const safeKey = key.toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/^-+|-+$/g, '') || 'key';
+      const secName = key.toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'SECTION';
+      const isBlock = val === '' || val === '|' || val === '>' || val === '|-' || val === '>-';
+
+      if (!isBlock) {
+        // Scalar: strip inline comment and surrounding quotes
+        const clean = val
+          .replace(/\s+#\s.*$/, '')
+          .replace(/^["'](.*)["']$/, '$1')
+          .trim();
+        if (clean) headers.push('@' + safeKey + ': ' + clean);
+        i++;
+      } else {
+        // Complex/multi-line block: collect all indented child lines
+        i++;
+        const content = [];
+        while (i < lines.length) {
+          const childRaw = lines[i];
+          const childT   = childRaw.trim();
+          if (childT !== '' && !/^[ \t]/.test(childRaw)) break;
+          if (childT !== '') {
+            if (childT.startsWith('#')) {
+              const c = childT.slice(1).trim();
+              if (c) content.push('~ ' + c);
+            } else {
+              const stripped = childRaw
+                .replace(/^[ \t]+/, '')
+                .replace(/^-\s+/, '')
+                .replace(/\s+#\s[^'"]*$/, '')
+                .replace(/^["'](.*)["']$/, '$1')
+                .trim();
+              if (stripped) content.push(stripped);
+            }
+          }
+          i++;
+        }
+        if (content.length) sections.push('::' + secName + '\n' + content.join('\n'));
+      }
+    }
+
+    const body = sections.join('\n\n').trim();
+    return headers.join('\n') + '\n\n' + (body ? body + '\n' : '');
+  }
+
   // ── slimToLlmText — strip orchestrator @header zone ─────────
   // Returns only the body zone — what the LLM actually receives.
   // Mirrors Python slim_to_llm_text() in tests/md_to_slm.py.
@@ -474,5 +552,5 @@
       .join('\n');
   }
 
-  return { parse, mdToSlm, jsonToSlm, slimToLlmText, sanitizeUserContent, estimateTokens, highlight };
+  return { parse, mdToSlm, jsonToSlm, yamlToSlm, slimToLlmText, sanitizeUserContent, estimateTokens, highlight };
 });

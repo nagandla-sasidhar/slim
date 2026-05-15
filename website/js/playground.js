@@ -143,6 +143,33 @@ MIT
   "timeout": 30
 }`
     },
+    yaml_agent: {
+      label: 'Agent config (YAML)',
+      format: 'yaml',
+      text: `# CrewAI-style agent definition
+name: DataAnalystAgent
+role: Senior Data Analyst
+goal: Analyze business datasets and surface actionable insights
+model: claude-opus-4-7
+temperature: 0.3
+max_iterations: 10
+
+tools:
+  - data_query
+  - chart_generator
+  - report_writer
+
+instructions:
+  - Always cite your data sources
+  - Present findings with confidence intervals where applicable
+  - Flag data quality issues immediately
+
+constraints:
+  - Never fabricate or extrapolate data points
+  - Keep final reports under 500 words
+  - Request clarification on ambiguous queries before proceeding
+`
+    },
     plain_notes: {
       label: 'Plain text notes',
       format: 'plain',
@@ -182,6 +209,8 @@ Next meeting: Jan 22 at 2pm EST
         slmText = SLIM.mdToSlm(input);
       } else if (currentFormat === 'json') {
         slmText = SLIM.jsonToSlm(input);
+      } else if (currentFormat === 'yaml') {
+        slmText = SLIM.yamlToSlm(input);
       } else {
         slmText = '@slim: 2.0\n\n' + input;
       }
@@ -306,6 +335,7 @@ Next meeting: Jan 22 at 2pm EST
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'json') setFormat('json');
     else if (ext === 'md' || ext === 'markdown') setFormat('markdown');
+    else if (ext === 'yaml' || ext === 'yml') setFormat('yaml');
     else setFormat('plain');
 
     const reader = new FileReader();
@@ -337,6 +367,7 @@ Next meeting: Jan 22 at 2pm EST
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'json') setFormat('json');
     else if (['md','markdown'].includes(ext)) setFormat('markdown');
+    else if (ext === 'yaml' || ext === 'yml') setFormat('yaml');
     else setFormat('plain');
 
     const reader = new FileReader();

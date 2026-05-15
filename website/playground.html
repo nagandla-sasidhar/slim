@@ -52,6 +52,7 @@
       <div class="fmt-btns">
         <button class="fmt-btn active" data-fmt="markdown">Markdown</button>
         <button class="fmt-btn" data-fmt="json">JSON</button>
+        <button class="fmt-btn" data-fmt="yaml">YAML</button>
         <button class="fmt-btn" data-fmt="plain">Plain Text</button>
       </div>
       <div class="spacer"></div>
@@ -61,16 +62,17 @@
         <option value="md_prompt">Prompt template (Markdown)</option>
         <option value="md_readme">README / docs (Markdown)</option>
         <option value="json_config">Config (JSON)</option>
+        <option value="yaml_agent">Agent config (YAML)</option>
         <option value="plain_notes">Plain text notes</option>
       </select>
-      <button id="btn-upload" class="icon-btn" title="Upload file (.md .json .txt .slm)">📂 Upload</button>
-      <input type="file" id="file-input" accept=".md,.markdown,.json,.txt,.slm" style="display:none" />
+      <button id="btn-upload" class="icon-btn" title="Upload file (.md .json .yaml .yml .txt .slm)">📂 Upload</button>
+      <input type="file" id="file-input" accept=".md,.markdown,.json,.yaml,.yml,.txt,.slm" style="display:none" />
     </div>
 
     <textarea
       id="input"
       class="pg-textarea"
-      placeholder="Paste Markdown, JSON, or plain text here…
+      placeholder="Paste Markdown, JSON, YAML, or plain text here…
 
 Drag & drop a file anywhere on this window, or use Upload button above.
 
