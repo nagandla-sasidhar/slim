@@ -1,0 +1,254 @@
+~ SLIM Playground — Demo Video Script
+@slim: 2.0
+@title: SLIM Playground Demo Video Script
+@version: 1.0
+@author: Sasidhar Nagandla
+@date: 2026-05-15
+@+purpose: Step-by-step recording guide for the SLIM playground demo video
+
+
+::OVERVIEW
+Total runtime target: 4-5 minutes (full version), 2:25 (LinkedIn cut)
+Audience: developers, AI engineers, prompt engineers
+Goal: show the playground converting real files with visible token savings
+Recording setup: Chrome or Edge, 1920x1080, browser zoom 110%, maximised window
+
+Clip structure for LinkedIn short cut:
+  Hook (0:15)     — homepage hero comparison, token count numbers
+  Main (1:30)     — Scenario 1 full flow (agent config Markdown)
+  Proof (0:30)    — token savings bar + real file upload
+  CTA (0:10)      — "free, open source, link in comments"
+
+
+::OPENING_HOOK
+Duration: 0:00 – 0:25
+
+Narration:
+  Every token you send to an LLM costs money and burns context.
+  Most Markdown files waste 30-50% of those tokens on formatting
+  syntax the model doesn't need. SLIM strips that waste out —
+  automatically.
+
+On screen:
+  Show the homepage hero comparison panel.
+  Let the viewer read the Markdown side vs the SLIM side.
+  Point to the token counts: ~118 tokens vs ~69 tokens.
+
+
+::SCENARIO_1
+Duration: 0:25 – 2:25
+Label: Agent Config — Markdown to SLIM
+Why first: visual, concrete savings, the most common real-world use case
+
+Step 1 — Open playground
+  Navigate to playground.html.
+  Show the empty state: two panels, input left, output right.
+  Point out the format buttons (Markdown / JSON / Plain Text).
+
+Step 2 — Load the example
+  Click the "Load example..." dropdown.
+  Select "Agent config (Markdown)".
+  Let the input panel fill.
+
+Step 3 — Walk through the input (pause here ~15 sec)
+  Point out each element and say what it costs:
+    YAML frontmatter block (--- ... ---) — metadata the LLM doesn't need
+    **bold** and *italic* markers throughout
+    - bullet list markers on every item
+    Fenced code block with triple backticks
+
+Step 4 — Watch the conversion
+  The output panel fills in real time.
+  Narrate as each transformation becomes visible:
+    "YAML front-matter became @headers — stripped before the LLM sees them"
+    "Bold markers gone. Italic markers gone. Text meaning preserved."
+    "Bullet markers stripped — indentation still shows the list structure"
+    "Code block became ::CODE_1 python — verbatim, named, one :: token"
+
+Step 5 — Token stats bar
+  Point to the stats row at the bottom of the input panel.
+  Read the numbers out loud: Input X tokens, LLM-facing Y tokens, Saved Z%.
+  Let that number sit on screen for 2-3 seconds.
+
+Step 6 — Copy the output
+  Click the Copy button in the output panel header.
+  Say: "Ready to paste directly into any LLM API call."
+
+
+::SCENARIO_2
+Duration: 2:25 – 3:25
+Label: JSON Config
+Why: shows SLIM is not Markdown-only
+
+Step 1 — Switch format
+  Click the JSON button in the input panel header.
+  The placeholder text changes.
+
+Step 2 — Load the example
+  Click "Load example..." -> select "Config (JSON)".
+
+Step 3 — Walk through the output
+  Each top-level JSON key became a named ::SECTION json block.
+  Narrate:
+    "JSON gets restructured into named sections."
+    "Each section is verbatim — no transformation, just clearly labelled."
+    "The LLM sees structured, named data instead of one flat JSON blob."
+
+Step 4 — Token savings
+  Point to stats bar. JSON savings are typically 15-25%.
+  Say: "Even JSON gets leaner."
+
+
+::SCENARIO_3
+Duration: 3:25 – 4:25
+Label: Your Own File — Drag and Drop
+Why: the wow moment — works on real files instantly
+
+Preparation (before recording):
+  Have a real Markdown README or agent config ready on the desktop.
+  Ideal: 50-100 lines, lots of formatting, some code blocks.
+  Good candidates: a project README, a Copilot agent .md file,
+  any system prompt written in Markdown.
+
+Step 1 — Drag and drop
+  Drag the .md file from the desktop onto the playground window.
+  Narrate: "Drag and drop any .md, .json, or .txt file directly."
+
+Step 2 — Watch conversion
+  Show the real file converting instantly.
+  Don't narrate — let the token numbers speak.
+
+Step 3 — Colour legend walkthrough
+  Point to the colour legend at the bottom of the output panel.
+  Walk through each colour quickly:
+    @key       grey    stripped, orchestrator-only
+    @+key      teal    LLM-visible header
+    ~ comment  green   stripped from LLM
+    ::SECTION  purple  named content section
+    $var       orange  interpolated variable
+
+Step 4 — Download
+  Click the "Download .slm" button.
+  Show the file saves with the .slm extension.
+  Say: "Use it in your pipeline, commit it to your repo, send it to any LLM."
+
+
+::SCENARIO_4_OPTIONAL
+Duration: 4:25 – 4:55 (optional, include for a longer cut)
+Label: Docs Quick Tour
+
+Step 1 — Navigate to docs.html
+  Show the sidebar: Schema, Sections, Variables, Directives.
+
+Step 2 — Sections entry
+  Scroll to the Sections heading.
+  Show ::NAME type and :::NESTED type with the live example.
+  Narrate: "Named sections are the core of SLIM v2."
+
+Step 3 — Migration Guide
+  Scroll to the Migration Guide section.
+  Show the two-line diff:
+    Before: === BLOCK [type] ... === /BLOCK
+    After:  ::BLOCK type
+  Say: "One line, no close tag, one fewer token per block boundary."
+
+
+::CLOSING
+Duration: 4:55 – 5:10 (or 4:25 – 4:35 on the short cut)
+
+On screen:
+  Return to the homepage.
+  Let the stats bar sit: 43.3% average token savings.
+
+Narration:
+  "SLIM is open source, MIT licensed, no signup required.
+  Paste your file, copy the output, start saving tokens today.
+  Link in the comments."
+
+Call to action text overlay (if editing):
+  slimformat.org
+  Free. Open source. MIT.
+
+
+::RECORDING_TIPS
+Browser setup:
+  Use Chrome or Edge
+  Resolution: 1920x1080
+  Zoom: 110% (makes text readable without crowding)
+  Hide bookmarks bar, extensions — clean browser chrome
+  Maximise the playground window
+
+Cursor:
+  Use a cursor highlighter tool (e.g. Cursor Highlight on Windows)
+  Viewers need to track where you are clicking
+
+Audio:
+  Record narration live alongside screen, or add in post-production
+  Avoid long silences during conversion — talk through it
+  Script the narration from this doc before recording
+
+Captions:
+  Add captions — most LinkedIn video is watched muted
+  Keep caption lines short (under 8 words per line)
+
+File prep:
+  Load all example files before recording — no fumbling
+  Have your real demo .md file on the desktop, named clearly
+  Test the drag-and-drop before the take
+
+Editing cuts to make:
+  Cut any hesitation pauses longer than 1 second
+  Speed-ramp the "watching it convert" moments to 1.5x
+  Hold on token savings numbers for at least 2 seconds
+  Add a zoom-in punch on the savings percentage
+
+
+::NARRATION_SCRIPT
+Full word-for-word script for recording or voice-over:
+
+Opening (0:00):
+  Every token you send to an LLM costs money and burns context.
+  Most Markdown files waste 30 to 50 percent of those tokens on
+  formatting that the model doesn't need. SLIM strips that waste
+  out — automatically.
+
+Scenario 1 intro (0:25):
+  This is a typical agent config written in Markdown.
+  Let's load it into the playground.
+
+Scenario 1 conversion (1:00):
+  Watch what happens in real time.
+  The YAML front-matter became header lines — they'll be stripped
+  before the LLM ever sees them.
+  Bold markers, italic markers, gone. The meaning stays.
+  List bullet markers stripped — indentation still shows the structure.
+  And the code block became a named section: ::CODE_1 python.
+  Verbatim content, clearly labelled, no closing tag needed.
+
+Token stats (1:45):
+  [read the numbers out loud from the stats bar]
+  That's [X] percent fewer tokens sent to the model.
+  On a large agent config or long system prompt, that compounds fast.
+
+Scenario 2 intro (2:25):
+  SLIM isn't just for Markdown. Let's try JSON.
+
+Scenario 2 output (2:45):
+  Each top-level key became a named section.
+  The LLM sees structured, labelled data instead of one flat blob.
+  Even JSON gets leaner.
+
+Scenario 3 intro (3:25):
+  Now let's try a real file. I'll drag and drop it directly.
+
+Scenario 3 colour legend (3:50):
+  Grey headers are stripped before the LLM.
+  Teal headers are LLM-visible.
+  Green lines are comments — gone.
+  Purple marks named sections.
+  Orange marks variable references.
+
+Closing (4:55):
+  SLIM is open source, MIT licensed, no signup.
+  Paste your file, copy the output, start saving tokens today.
+  Link in the comments.
