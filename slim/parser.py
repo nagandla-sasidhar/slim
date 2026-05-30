@@ -1,5 +1,5 @@
 """
-SLIM Parser — Reference Implementation v1.0
+SLIM Parser — Reference Implementation v2.0
 Structured LLM Instruction Markup
 
 © 2026 Sasidhar Nagandla. MIT License.
@@ -253,7 +253,7 @@ class SLIMParser:
         variables = {**headers, **llm_headers}
 
         return SLIMDocument(
-            version=str(headers.get("slim", "1.0")),
+            version=str(headers.get("slim", "2.0")),
             headers=headers,
             llm_headers=llm_headers,
             body_lines=body_lines,
@@ -300,48 +300,34 @@ class SLIMParser:
         out_lines: list[str] = []
         errors: list[ParseError] = []
 
-        BLOCK_OPEN_RE  = re.compile(r"^===\s+([A-Z][A-Z0-9_]*)(?:\s+\[([^\]]+)\])?$")
-        BLOCK_CLOSE_RE = re.compile(r"^===\s+/([A-Z][A-Z0-9_]*)$")
+        # v2: ::NAME or :::NAME (nested), optional type hint after space
+        SECTION_RE = re.compile(r"^(:::?)([A-Z][A-Z0-9_]*)(?:\s+(\S+))?$")
 
         i = 0
         while i < len(lines):
             stripped = lines[i].strip()
 
-            m_open = BLOCK_OPEN_RE.match(stripped)
-            if m_open:
-                name = m_open.group(1)
-                type_tag = m_open.group(2)
+            m = SECTION_RE.match(stripped)
+            if m:
+                name = m.group(2)
+                type_tag = m.group(3)
                 start_line = line_offset + i
                 content_lines: list[str] = []
+                out_lines.append(lines[i].rstrip())
                 i += 1
 
                 while i < len(lines):
                     inner = lines[i].strip()
-                    m_close = BLOCK_CLOSE_RE.match(inner)
-                    if m_close and m_close.group(1).upper() == name.upper():
+                    if SECTION_RE.match(inner):
                         break
-                    # Check for unescaped boundary inside block
-                    if inner.startswith("===") and not inner.startswith("\\==="):
-                        msg = f"Unescaped '===' inside block {name}"
-                        if self.mode == ParseMode.STRICT:
-                            errors.append(ParseError(line_offset + i, msg))
-                        else:
-                            errors.append(ParseError(line_offset + i, msg))
-                    content_lines.append(lines[i].rstrip())
+                    # Unescape \:: → :: in content
+                    line = lines[i][1:] if lines[i].startswith("\\::") else lines[i]
+                    content_lines.append(line.rstrip())
+                    out_lines.append(line.rstrip())
                     i += 1
-                else:
-                    errors.append(ParseError(start_line, f"Unclosed block: {name}"))
-                    i += 1
-                    continue
 
-                # Unescape \=== → === in content
-                content = "\n".join(
-                    l[1:] if l.strip().startswith("\\===") else l
-                    for l in content_lines
-                )
+                content = "\n".join(content_lines).strip()
                 blocks[name] = Block(name=name, type_tag=type_tag, content=content, line_start=start_line)
-                out_lines.append(f"=== {name}")   # keep reference in body
-                i += 1
                 continue
 
             out_lines.append(lines[i].rstrip())
@@ -456,13 +442,15 @@ class SLIMParser:
 
 def sanitize_user_content(text: str) -> str:
     """
-    Escape SLIM sigils in user-provided strings before embedding in a SLIM file.
-    Prevents header injection, block injection, directive injection.
+    Escape SLIM v2 sigils in user-provided strings before embedding in a SLIM file.
+    Prevents header injection, section injection, directive injection.
     """
     text = text.replace("\\", "\\\\")
-    for sigil in ["===", "@", "$", ">", "~"]:
+    for sigil in ["@", "$", ">", "~"]:
         text = text.replace(sigil, f"\\{sigil}")
-    return text
+    lines = text.split("\n")
+    lines = ["\\" + line if line.startswith("::") else line for line in lines]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
